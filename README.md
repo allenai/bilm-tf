@@ -9,6 +9,11 @@ pip install tensorflow-gpu==1.2 h5py
 python setup.py install
 ```
 
+Finally, ensure the tests pass in your environment by running:
+```
+python -m unittest discover tests/
+```
+
 ## Usage overview
 There are two main public classes: `Batcher` and `BidirectionalLanguageModel`.
 
