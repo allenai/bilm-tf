@@ -5,6 +5,8 @@ import h5py
 import json
 import re
 
+from .data import UnicodeCharsVocabulary, Batcher
+
 DTYPE = 'float32'
 DTYPE_INT = 'int64'
 
@@ -14,26 +16,54 @@ class BidirectionalLanguageModel(object):
             self,
             options_file: str,
             weight_file: str,
-            character_ids_placeholder,
-            max_batch_size=128
+            ids_placeholder,
+            use_character_inputs=True,
+            embedding_weight_file=None,
+            max_batch_size=128,
         ):
         '''
         Creates the language model computational graph and loads weights
 
+        Two options for input type:
+            (1) To use character inputs (paired with Batcher)
+                pass use_character_inputs=True, and ids_placeholder
+                of shape (None, None, max_characters_per_token)
+            (2) To use token ids as input (paired with TokenBatcher),
+                pass use_character_inputs=False and ids_placeholder
+                of shape (None, None).  In this case, embedding_weight_file
+                is also required input
+
         options_file: location of the json formatted file with
                       LM hyperparameters
         weight_file: location of the hdf5 file with LM weights
-        character_ids_placeholder: a tf.placeholder of type int32 and shape
-            (None, None, max_characters_per_token) holding the input
-            character ids for a batch
+        ids_placeholder: a tf.placeholder of type int32.
+            If use_character_inputs=True, it is shape
+                (None, None, max_characters_per_token) and holds the input
+                character ids for a batch
+            If use_character_input=False, it is shape (None, None) and
+                holds the input token ids for a batch
+        use_character_inputs: if True, then use character ids as input,
+            otherwise use token ids
         max_batch_size: the maximum allowable batch size 
         '''
         with open(options_file, 'r') as fin:
             options = json.load(fin)
 
-        self._lm_graph = BidirectionalLanguageModelGraph(options, weight_file,
-            character_ids_placeholder, max_batch_size)
-        self._max_token_length = options['char_cnn']['max_characters_per_token']
+        if not use_character_inputs:
+            if embedding_weight_file is None:
+                raise ValueError(
+                    "embedding_weight_file is required input with "
+                    "not use_character_inputs"
+                )
+
+        self._lm_graph = BidirectionalLanguageModelGraph(
+            options,
+            weight_file,
+            ids_placeholder,
+            embedding_weight_file=embedding_weight_file,
+            use_character_inputs=use_character_inputs,
+            max_batch_size=max_batch_size)
+
         self._ops = None
 
     def get_ops(self):
@@ -96,11 +126,12 @@ class BidirectionalLanguageModel(object):
 
         self._ops = {
             'lm_embeddings': lm_embeddings, 
-            'lengths': sequence_length_wo_bos_eos
+            'lengths': sequence_length_wo_bos_eos,
+            'token_embeddings': self._lm_graph.embedding,
         }
 
 
-def _pretrained_initializer(varname, weight_file):
+def _pretrained_initializer(varname, weight_file, embedding_weight_file=None):
     '''
     We'll stub out all the initializers in the pretrained LM with
     a function that loads the weights from the file
@@ -121,18 +152,30 @@ def _pretrained_initializer(varname, weight_file):
     if varname_in_file.startswith('RNN'):
         varname_in_file = weight_name_map[varname_in_file]
 
-    with h5py.File(weight_file, 'r') as fin:
-        if varname_in_file == 'char_embed':
+    if varname_in_file == 'embedding':
+        with h5py.File(embedding_weight_file, 'r') as fin:
             # Have added a special 0 index for padding not present
             # in the original model.
-            char_embed_weights = fin[varname_in_file][...]
+            embed_weights = fin[varname_in_file][...]
             weights = np.zeros(
-                (char_embed_weights.shape[0] + 1, char_embed_weights.shape[1]),
+                (embed_weights.shape[0] + 1, embed_weights.shape[1]),
                 dtype=DTYPE
             )
-            weights[1:, :] = char_embed_weights
-        else:
-            weights = fin[varname_in_file][...]
+            weights[1:, :] = embed_weights
+    else:
+        with h5py.File(weight_file, 'r') as fin:
+            if varname_in_file == 'char_embed':
+                # Have added a special 0 index for padding not present
+                # in the original model.
+                char_embed_weights = fin[varname_in_file][...]
+                weights = np.zeros(
+                    (char_embed_weights.shape[0] + 1,
+                     char_embed_weights.shape[1]),
+                    dtype=DTYPE
+                )
+                weights[1:, :] = char_embed_weights
+            else:
+                weights = fin[varname_in_file][...]
 
     # Tensorflow initializers are callables that accept a shape parameter
     # and some optional kwargs
@@ -152,25 +195,32 @@ class BidirectionalLanguageModelGraph(object):
     Creates the computational graph and holds the ops necessary for runnint
     a bidirectional language model
     '''
-    def __init__(self, options, weight_file, tokens_characters,
+    def __init__(self, options, weight_file, ids_placeholder,
+                 use_character_inputs=True, embedding_weight_file=None,
                  max_batch_size=128):
 
         self.options = options
         self._max_batch_size = max_batch_size
-        self.tokens_characters = tokens_characters
+        self.ids_placeholder = ids_placeholder
+        self.use_character_inputs = use_character_inputs
 
         # this custom_getter will make all variables not trainable and
         # override the default initializer
         def custom_getter(getter, name, *args, **kwargs):
             kwargs['trainable'] = False
-            kwargs['initializer'] = _pretrained_initializer(name, weight_file)
+            kwargs['initializer'] = _pretrained_initializer(
+                name, weight_file, embedding_weight_file
+            )
             return getter(name, *args, **kwargs)
 
         with tf.variable_scope('bilm', custom_getter=custom_getter):
             self._build()
 
     def _build(self):
-        self._build_word_char_embeddings()
+        if self.use_character_inputs:
+            self._build_word_char_embeddings()
+        else:
+            self._build_word_embeddings()
         self._build_lstms()
 
     def _build_word_char_embeddings(self):
@@ -223,7 +273,7 @@ class BidirectionalLanguageModelGraph(object):
             )
             # shape (batch_size, unroll_steps, max_chars, embed_dim)
             self.char_embedding = tf.nn.embedding_lookup(self.embedding_weights,
-                                                    self.tokens_characters)
+                                                    self.ids_placeholder)
 
         # the convolutions
         def make_convolutions(inp):
@@ -346,6 +396,21 @@ class BidirectionalLanguageModelGraph(object):
         self.embedding = embedding
 
 
+    def _build_word_embeddings(self):
+        n_tokens_vocab = self.options['n_tokens_vocab']
+
+        projection_dim = self.options['lstm']['projection_dim']
+
+        # the word embeddings
+        with tf.device("/cpu:0"):
+            self.embedding_weights = tf.get_variable(
+                "embedding", [n_tokens_vocab, projection_dim],
+                dtype=DTYPE,
+            )
+            self.embedding = tf.nn.embedding_lookup(self.embedding_weights,
+                                                self.ids_placeholder)
+
+
     def _build_lstms(self):
         # now the LSTMs
         # these will collect the initial states for the forward
@@ -362,11 +427,11 @@ class BidirectionalLanguageModelGraph(object):
         if use_skip_connections:
             print("USING SKIP CONNECTIONS")
 
-        #lstm_outputs = []
-        #for lstm_num, lstm_input in enumerate(lstm_inputs):
-
         # the sequence lengths from input mask
-        mask = tf.reduce_any(self.tokens_characters > 0, axis=2)
+        if self.use_character_inputs:
+            mask = tf.reduce_any(self.ids_placeholder > 0, axis=2)
+        else:
+            mask = self.ids_placeholder > 0
         sequence_lengths = tf.reduce_sum(tf.cast(mask, tf.int32), axis=1)
         batch_size = tf.shape(sequence_lengths)[0]
 
@@ -470,4 +535,47 @@ class BidirectionalLanguageModelGraph(object):
         self.mask = mask
         self.sequence_lengths = sequence_lengths
         self.update_state_op = tf.group(*update_ops)
+
+
+def dump_token_embeddings(vocab_file, options_file, weight_file, outfile):
+    '''
+    Given an input vocabulary file, dump all the token embeddings to the
+    outfile.  The result can be used as the embedding_weight_file when
+    constructing a BidirectionalLanguageModel.
+    '''
+    with open(options_file, 'r') as fin:
+        options = json.load(fin)
+    max_word_length = options['char_cnn']['max_characters_per_token']
+
+    vocab = UnicodeCharsVocabulary(vocab_file, max_word_length)
+    batcher = Batcher(vocab_file, max_word_length)
+
+    ids_placeholder = tf.placeholder('int32',
+                                     shape=(None, None, max_word_length)
+    )
+    model = BidirectionalLanguageModel(
+        options_file, weight_file, ids_placeholder
+    )
+
+    embedding_op = model.get_ops()['token_embeddings']
+
+    n_tokens = vocab.size
+    embed_dim = int(embedding_op.shape[2])
+
+    embeddings = np.zeros((n_tokens, embed_dim), dtype=DTYPE)
+
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        for k in range(n_tokens):
+            token = vocab.id_to_word(k)
+            char_ids = batcher.batch_sentences([[token]])[0, 1, :].reshape(
+                1, 1, -1)
+            embeddings[k, :] = sess.run(
+                embedding_op, feed_dict={ids_placeholder: char_ids}
+            )
+
+    with h5py.File(outfile, 'w') as fout:
+        ds = fout.create_dataset(
+            'embedding', embeddings.shape, dtype='float32', data=embeddings
+        )
 
