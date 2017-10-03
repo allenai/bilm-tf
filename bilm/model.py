@@ -564,7 +564,8 @@ def dump_token_embeddings(vocab_file, options_file, weight_file, outfile):
 
     embeddings = np.zeros((n_tokens, embed_dim), dtype=DTYPE)
 
-    with tf.Session() as sess:
+    config = tf.ConfigProto(allow_soft_placement=True)
+    with tf.Session(config=config) as sess:
         sess.run(tf.global_variables_initializer())
         for k in range(n_tokens):
             token = vocab.id_to_word(k)
