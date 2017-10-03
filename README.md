@@ -53,3 +53,22 @@ the vocabulary file are handled appropriately at run time, with a slight
 decrease in run time.  It is recommended to always include the special
 `<S>` and `</S>` tokens (case sensitive) in the vocabulary file.
 
+## Optional mode with pre-computed token embeddings
+To speed up model inference with a fixed, specified vocabulary, it is
+possible to pre-compute the context independent token representations,
+write them to a file, and re-use them for inference.  Note that we don't
+support falling back to character inputs for out-of-vocabulary words,
+so this should only be used when the biLM is used to compute embeddings
+for input with a fixed, defined vocabulary.
+
+To use this option:
+
+1.  First create a vocabulary file with all of the unique tokens in your
+dataset and add the special `<S>` and `</S>` tokens.
+2.  Run `dump_token_embeddings` with the full model to write the token
+embeddings to a hdf5 file.
+3.  Use `TokenBatcher` (instead of `Batcher`) with your vocabulary file,
+and pass `use_token_inputs=False` and the name of the output file from step
+2 to the `BidirectonalLanguageModel` constructor.
+
+
