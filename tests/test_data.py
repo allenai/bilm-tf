@@ -4,7 +4,7 @@ import tempfile
 import os
 import numpy as np
 
-from bilm.data import UnicodeCharsVocabulary, Vocabulary, Batcher
+from bilm.data import UnicodeCharsVocabulary, Vocabulary, Batcher, TokenBatcher
 
 FIXTURES = 'tests/fixtures/data/'
 
@@ -182,6 +182,19 @@ class TestBatcher(unittest.TestCase):
         x_char_ids = batcher.batch_sentences(sentences)
 
         self.assertTrue((x_char_ids == self._expected_char_ids).all())
+
+
+class TestTokenBatcher(unittest.TestCase):
+    def test_token_batcher(self):
+        batcher = TokenBatcher(os.path.join(FIXTURES, 'vocab_test.txt'))
+        sentences = [['The', 'first', '.'], ['It', 'said']]
+        x_token_ids = batcher.batch_sentences(sentences)
+
+        expected_ids = np.array([
+            [2, 18, 75, 6, 1],
+            [2, 67, 21, 1, 0]
+        ])
+        self.assertTrue((x_token_ids == expected_ids).all())
 
 
 if __name__ == '__main__':
