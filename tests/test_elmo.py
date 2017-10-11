@@ -69,7 +69,7 @@ class TestWeightedLayers(unittest.TestCase):
         ops = model.get_ops()
         lm_embeddings, mask, weighted0, weighted1 = self.sess.run(
             [ops['lm_embeddings'], ops['mask'],
-             weighted_ops[0][0], weighted_ops[1][0]],
+             weighted_ops['weighted_ops'][0], weighted_ops['weighted_ops'][1]],
             feed_dict={character_ids: X_chars}
         )
         actual_elmo = [weighted0, weighted1]
