@@ -70,11 +70,13 @@ class BidirectionalLanguageModel(object):
         '''
         returns a dictionary with tensorflow ops:
             {'lm_embeddings': embedding_op,
-             'lengths': sequence_lengths_op}
+             'lengths': sequence_lengths_op,
+             'mask': op to compute mask}
 
         embedding_op computes the LM embeddings and is shape
             (None, 3, None, 1024)
         lengths_op computes the sequence lengths and is shape (None, )
+        mask computes the sequence mask and is shape (None, None)
         '''
         if self._ops is None:
             self._build_ops()
@@ -124,10 +126,30 @@ class BidirectionalLanguageModel(object):
                 axis=1
             )
 
+            # get the mask op without bos/eos.
+            # tf doesn't support reversing boolean tensors, so cast
+            # to int then back
+            mask_wo_bos_eos = tf.cast(self._lm_graph.mask[:, 1:], 'int32')
+            mask_wo_bos_eos = tf.reverse_sequence(
+                mask_wo_bos_eos,
+                self._lm_graph.sequence_lengths - 1,
+                seq_axis=1,
+                batch_axis=0,
+            )
+            mask_wo_bos_eos = mask_wo_bos_eos[:, 1:]
+            mask_wo_bos_eos = tf.reverse_sequence(
+                mask_wo_bos_eos,
+                sequence_length_wo_bos_eos,
+                seq_axis=1,
+                batch_axis=0,
+            )
+            mask_wo_bos_eos = tf.cast(mask_wo_bos_eos, 'bool')
+
         self._ops = {
             'lm_embeddings': lm_embeddings, 
             'lengths': sequence_length_wo_bos_eos,
             'token_embeddings': self._lm_graph.embedding,
+            'mask': mask_wo_bos_eos,
         }
 
 
