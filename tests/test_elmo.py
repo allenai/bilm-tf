@@ -82,8 +82,8 @@ class TestWeightedLayers(unittest.TestCase):
 
         # Now compute the actual weighted layers
         for k in range(2):
-            normed_weights = np.exp(weights[k][0]) / np.sum(
-                                                np.exp(weights[k][0]))
+            normed_weights = np.exp(weights[k][0] + 1.0 / 3) / np.sum(
+                                  np.exp(weights[k][0] + 1.0 / 3))
             # masked layer normalization
             expected_elmo = np.zeros((3, 4, lm_embeddings.shape[-1]))
             for j in range(3):  # number of LM layers
