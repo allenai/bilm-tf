@@ -16,15 +16,18 @@ def weight_layers(n_out_layers, bidirectional_lm, l2_coef):
         l2_coef: the l2 regularization coefficient
 
     Output:
-        [
-            [op to compute weighted average for output layer1, 
-             op to compute regularization term for output layer1],
-
-            [op to compute weighted average for output layer2, 
-             op to compute regularization term for output layer2],
-
-            ...
-        ]
+        {
+            'weighted_ops': [
+                op to compute weighted average for output layer1, 
+                op to compute regularization term for output layer2,
+                ...
+            ],
+            'regularization_ops': [
+                op to compute regularization term for output layer1,
+                op to compute regularization term for output layer2,
+                ...
+            ]
+        }
     '''
     def _l2_regularizer(weights):
         return l2_coef * tf.reduce_sum(tf.square(weights))
@@ -53,7 +56,7 @@ def weight_layers(n_out_layers, bidirectional_lm, l2_coef):
                 x, mean, variance, None, None, 1E-12
             )
 
-        ret = []
+        ret = {'weighted_ops': [], 'regularization_ops': []}
         for k in range(n_out_layers):
             W = tf.get_variable(
                 'ELMo_W_{}'.format(k),
@@ -91,8 +94,8 @@ def weight_layers(n_out_layers, bidirectional_lm, l2_coef):
             if len(reg) != 1:
                 raise ValueError
 
-            ret.append([weighted_lm_layers, reg[0]])
-
+            ret['weighted_ops'].append(weighted_lm_layers)
+            ret['regularization_ops'].append(reg[0])
 
     return ret
 
