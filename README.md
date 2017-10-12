@@ -13,6 +13,19 @@ Finally, ensure the tests pass in your environment by running:
 ```
 python -m unittest discover tests/
 ```
+# Installing with Docker
+
+You can also run `bilm-tf` using Docker. From the cloned repository, run:
+```
+sudo docker build -t bilm-tf .
+```
+To run the image, you must use nvidia-docker, because this repository
+requires GPUs.
+```
+sudo nvidia-docker run -t bilm-tf
+```
+
+TODO: Add public image once it is released.
 
 ## Usage overview
 There are two main public classes: `Batcher` and `BidirectionalLanguageModel`.
