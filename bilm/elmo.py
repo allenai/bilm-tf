@@ -1,7 +1,7 @@
 
 import tensorflow as tf
 
-def weight_layers(n_out_layers, bidirectional_lm, l2_coef):
+def weight_layers(n_out_layers, bidirectional_lm, l2_coef, do_layer_norm=True):
     '''
     Weight the layers of a biLM with trainable scalar weights.
 
@@ -83,7 +83,10 @@ def weight_layers(n_out_layers, bidirectional_lm, l2_coef):
             # compute the weighted, normalized LM activations
             pieces = []
             for w, t in zip(normed_weights, layers):
-                pieces.append(w * _do_ln(tf.squeeze(t, squeeze_dims=1)))
+                if do_layer_norm:
+                    pieces.append(w * _do_ln(tf.squeeze(t, squeeze_dims=1)))
+                else:
+                    pieces.append(w * tf.squeeze(t, squeeze_dims=1))
             weighted_lm_layers = tf.add_n(pieces) * gamma
 
             # get the regularizer 
