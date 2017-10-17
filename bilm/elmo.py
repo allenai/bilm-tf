@@ -1,7 +1,8 @@
 
 import tensorflow as tf
 
-def weight_layers(n_out_layers, bidirectional_lm, l2_coef, do_layer_norm=True):
+def weight_layers(n_out_layers, bidirectional_lm, l2_coef=None,
+                  use_top_only=False, do_layer_norm=True):
     '''
     Weight the layers of a biLM with trainable scalar weights.
 
@@ -58,13 +59,47 @@ def weight_layers(n_out_layers, bidirectional_lm, l2_coef, do_layer_norm=True):
 
         ret = {'weighted_ops': [], 'regularization_ops': []}
         for k in range(n_out_layers):
-            W = tf.get_variable(
-                'ELMo_W_{}'.format(k),
-                shape=(n_lm_layers, ),
-                initializer=tf.zeros_initializer,
-                regularizer=_l2_regularizer,
-                trainable=True,
-            )
+            if use_top_only:
+                layers = tf.split(lm_embeddings, n_lm_layers, axis=1)
+                # just the top layer
+                sum_pieces = tf.squeeze(layers[-1], squeeze_dims=1)
+                # no regularization
+                reg = [0.0]
+            else:
+                W = tf.get_variable(
+                    'ELMo_W_{}'.format(k),
+                    shape=(n_lm_layers, ),
+                    initializer=tf.zeros_initializer,
+                    regularizer=_l2_regularizer,
+                    trainable=True,
+                )
+
+                # normalize the weights
+                normed_weights = tf.split(
+                    tf.nn.softmax(W + 1.0 / n_lm_layers), n_lm_layers
+                )
+                # split LM layers
+                layers = tf.split(lm_embeddings, n_lm_layers, axis=1)
+    
+                # compute the weighted, normalized LM activations
+                pieces = []
+                for w, t in zip(normed_weights, layers):
+                    if do_layer_norm:
+                        pieces.append(w * _do_ln(tf.squeeze(t, squeeze_dims=1)))
+                    else:
+                        pieces.append(w * tf.squeeze(t, squeeze_dims=1))
+                sum_pieces = tf.add_n(pieces)
+    
+                # get the regularizer 
+                reg = [
+                    r for r in tf.get_collection(
+                                    tf.GraphKeys.REGULARIZATION_LOSSES)
+                    if r.name.find('ELMo_W_{}/'.format(k)) >= 0
+                ]
+                if len(reg) != 1:
+                    raise ValueError
+
+            # scale the weighted sum by gamma
             gamma = tf.get_variable(
                 'ELMo_gamma_{}'.format(k),
                 shape=(1, ),
@@ -72,31 +107,8 @@ def weight_layers(n_out_layers, bidirectional_lm, l2_coef, do_layer_norm=True):
                 regularizer=None,
                 trainable=True,
             )
-
-            # normalize the weights
-            normed_weights = tf.split(
-                tf.nn.softmax(W + 1.0 / n_lm_layers), n_lm_layers
-            )
-            # split LM layers
-            layers = tf.split(lm_embeddings, n_lm_layers, axis=1)
-
-            # compute the weighted, normalized LM activations
-            pieces = []
-            for w, t in zip(normed_weights, layers):
-                if do_layer_norm:
-                    pieces.append(w * _do_ln(tf.squeeze(t, squeeze_dims=1)))
-                else:
-                    pieces.append(w * tf.squeeze(t, squeeze_dims=1))
-            weighted_lm_layers = tf.add_n(pieces) * gamma
-
-            # get the regularizer 
-            reg = [
-                r for r in tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
-                if r.name.find('ELMo_W_{}/'.format(k)) >= 0
-            ]
-            if len(reg) != 1:
-                raise ValueError
-
+            weighted_lm_layers = sum_pieces * gamma
+            
             ret['weighted_ops'].append(weighted_lm_layers)
             ret['regularization_ops'].append(reg[0])
 

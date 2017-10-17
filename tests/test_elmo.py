@@ -15,14 +15,14 @@ FIXTURES = 'tests/fixtures/model/'
 
 
 class TestWeightedLayers(unittest.TestCase):
-    def setUp(self):
-        self.sess = tf.Session()
-
     def tearDown(self):
         tf.reset_default_graph()
         self.sess.close()
 
-    def test_weighted_layers(self):
+    def setUp(self):
+        self.sess = tf.Session()
+
+    def _check_weighted_layer(self, l2_coef, do_layer_norm, use_top_only):
         # create the Batcher
         vocab_file = os.path.join(FIXTURES, 'vocab_test.txt')
         batcher = Batcher(vocab_file, 50)
@@ -34,17 +34,21 @@ class TestWeightedLayers(unittest.TestCase):
         model = BidirectionalLanguageModel(
             options_file, weight_file, character_ids, 4)
 
-        weighted_ops = weight_layers(2, model, 1.0)
+        weighted_ops = weight_layers(2, model, l2_coef=l2_coef, 
+                                     do_layer_norm=do_layer_norm,
+                                     use_top_only=use_top_only)
 
         # initialize
         self.sess.run(tf.global_variables_initializer())
 
-        # should have two trainable variables per weighted layer
-        self.assertEqual(len(tf.trainable_variables()), 4)
+        n_expected_trainable_weights = 2 * (1 + int(not use_top_only))
+        self.assertEqual(len(tf.trainable_variables()),
+                         n_expected_trainable_weights)
         # and one regularizer per weighted layer
+        n_expected_reg_losses = 2 * int(not use_top_only)
         self.assertEqual(
             len(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)),
-            2
+            n_expected_reg_losses,
         )
 
         # Set the variables.
@@ -52,11 +56,11 @@ class TestWeightedLayers(unittest.TestCase):
                    [np.array([0.2, 0.4, 0.6]), np.array([0.88])]]
         for k in range(2):
             with tf.variable_scope('', reuse=True):
-                W = tf.get_variable('ELMo_W_{}'.format(k))
+                if not use_top_only:
+                    W = tf.get_variable('ELMo_W_{}'.format(k))
+                    _ = self.sess.run([W.assign(weights[k][0])])
                 gamma = tf.get_variable('ELMo_gamma_{}'.format(k))
-                _ = self.sess.run(
-                    [W.assign(weights[k][0]), gamma.assign(weights[k][1])]
-                )
+                _ = self.sess.run([gamma.assign(weights[k][1])])
 
         # make some data
         sentences = [
@@ -86,18 +90,34 @@ class TestWeightedLayers(unittest.TestCase):
                                   np.exp(weights[k][0] + 1.0 / 3))
             # masked layer normalization
             expected_elmo = np.zeros((3, 4, lm_embeddings.shape[-1]))
-            for j in range(3):  # number of LM layers
-                mean = np.mean(lm_embeddings[:, j, :, :][mask])
-                std = np.std(lm_embeddings[:, j, :, :][mask])
-                normed_lm_embed = (lm_embeddings[:, j, :, :] - mean) / (
-                    std + 1E-12)
-                expected_elmo += normed_weights[j] * normed_lm_embed
+            if not use_top_only:
+                for j in range(3):  # number of LM layers
+                    if do_layer_norm:
+                        mean = np.mean(lm_embeddings[:, j, :, :][mask])
+                        std = np.std(lm_embeddings[:, j, :, :][mask])
+                        normed_lm_embed = (lm_embeddings[:, j, :, :] - mean) / (
+                            std + 1E-12)
+                        expected_elmo += normed_weights[j] * normed_lm_embed
+                    else:
+                        expected_elmo += normed_weights[j] * lm_embeddings[
+                                                                    :, j, :, :]
+            else:
+                expected_elmo += lm_embeddings[:, -1, :, :]
 
             # the scale parameter
             expected_elmo *= weights[k][1]
             self.assertTrue(
                 np.allclose(expected_elmo, actual_elmo[k], atol=1e-6)
             )
+
+    def test_weighted_layers(self):
+        self._check_weighted_layer(1.0, do_layer_norm=True, use_top_only=False)
+
+    def test_weighted_layers_no_norm(self):
+        self._check_weighted_layer(1.0, do_layer_norm=False, use_top_only=False)
+
+    def test_weighted_layers_top_only(self):
+        self._check_weighted_layer(None, do_layer_norm=False, use_top_only=True)
 
 
 if __name__ == '__main__':
