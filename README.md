@@ -80,7 +80,7 @@ decrease in run time.  It is recommended to always include the special
 
 See `usage_character.py` for a detailed usage example.
 
-## Optional mode with pre-computed token embeddings
+### ELMo with pre-computed and cached context independent token representations
 To speed up model inference with a fixed, specified vocabulary, it is
 possible to pre-compute the context independent token representations,
 write them to a file, and re-use them for inference.  Note that we don't
@@ -98,4 +98,5 @@ embeddings to a hdf5 file.
 and pass `use_token_inputs=False` and the name of the output file from step
 2 to the `BidirectonalLanguageModel` constructor.
 
+See `usage_token.py` for a detailed usage example.
 
