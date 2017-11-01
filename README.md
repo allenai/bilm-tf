@@ -34,17 +34,21 @@ sudo nvidia-docker run -t bilm-tf
 TODO: Add public image once it is released.
 
 ## Usage overview
-There are two main public classes: `Batcher` and `BidirectionalLanguageModel`.
+There are three ways to integrate ELMo representations into a downstream task, depending on your use case.
 
-The `Batcher` is used to convert lists of tokenized sentences to numpy
-arrays of character ids for the model to run inference.
+1. Compute representations on the fly from raw text using character input.  This is the most general method and will handle any input text.  It is also the most computationally expensive.
+2. Precompute and cache the context independent token representations, then compute context dependent representations using the biLSTMs for input data.  This method is less computationally expensive then #1, but is only applicable with a fixed, prescribed vocabulary.
+3.  Precompute the representations for your entire dataset and save to a file.
 
-`BidirectionalLanguageModel` loads the pre-trained model, creates the
-computational graph and returns ops that run inference.
+We have used all of these methods in the past for various use cases.  #1 is necessary for evaluating at test time on unseen data (e.g. public SQuAD leaderboard). #2 is a good compromise for large datasets where the size of the file in #3 is unfeasible (SNLI, SQuAD).  #3 is a good choice for smaller datasets or in cases where you'd like to use ELMo in other frameworks.
 
-See `usage.py` for a detailed usage example.
+In all cases, the process roughly follows the same steps.
+First, create a `Batcher` (or `TokenBatcher` for #2) to translate tokenized strings to numpy arrays of character (or token) ids.
+Then, load the pretrained ELMo model (class `BidirectionalLanguageModel`).
+Finally, for steps #1 and #2 use `weight_layers` to compute the final ELMo representations.
+For #3, use `BidirectionalLanguageModel` to write all the intermediate layers to a file.
 
-## Shape conventions
+#### Shape conventions
 Each tokenized sentence is a list of `str`, with a batch of sentences
 a list of tokenized sentences (`List[List[str]]`).
 
@@ -63,7 +67,7 @@ After running inference with the batch, the return biLM embeddings are
 a numpy array with shape `(n_sentences, 3, max_sentence_length, 1024)`,
 after removing the special begin/end tokens.
 
-## Vocabulary file
+#### Vocabulary file
 The `Batcher` takes a vocabulary file as input for efficency.  This is a
 text file, with one token per line, separated by newlines (`\n`).
 Each token in the vocabulary is cached as the appropriate 50 character id
@@ -71,6 +75,10 @@ sequence once.  Since the model is completely character based, tokens not in
 the vocabulary file are handled appropriately at run time, with a slight
 decrease in run time.  It is recommended to always include the special
 `<S>` and `</S>` tokens (case sensitive) in the vocabulary file.
+
+### ELMo with character input
+
+See `usage_character.py` for a detailed usage example.
 
 ## Optional mode with pre-computed token embeddings
 To speed up model inference with a fixed, specified vocabulary, it is
