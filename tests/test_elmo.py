@@ -32,11 +32,15 @@ class TestWeightedLayers(unittest.TestCase):
         weight_file = os.path.join(FIXTURES, 'lm_weights.hdf5')
         character_ids = tf.placeholder('int32', (None, None, 50))
         model = BidirectionalLanguageModel(
-            options_file, weight_file, character_ids, 4)
+            options_file, weight_file, max_batch_size=4)
+        bilm_ops = model(character_ids)
 
-        weighted_ops = weight_layers(2, model, l2_coef=l2_coef, 
+        weighted_ops = []
+        for k in range(2):
+            ops = weight_layers(str(k), bilm_ops, l2_coef=l2_coef, 
                                      do_layer_norm=do_layer_norm,
                                      use_top_only=use_top_only)
+            weighted_ops.append(ops)
 
         # initialize
         self.sess.run(tf.global_variables_initializer())
@@ -57,9 +61,9 @@ class TestWeightedLayers(unittest.TestCase):
         for k in range(2):
             with tf.variable_scope('', reuse=True):
                 if not use_top_only:
-                    W = tf.get_variable('ELMo_W_{}'.format(k))
+                    W = tf.get_variable('{}_ELMo_W'.format(k))
                     _ = self.sess.run([W.assign(weights[k][0])])
-                gamma = tf.get_variable('ELMo_gamma_{}'.format(k))
+                gamma = tf.get_variable('{}_ELMo_gamma'.format(k))
                 _ = self.sess.run([gamma.assign(weights[k][1])])
 
         # make some data
@@ -70,10 +74,10 @@ class TestWeightedLayers(unittest.TestCase):
         ]
         X_chars = batcher.batch_sentences(sentences)
 
-        ops = model.get_ops()
+        ops = model(character_ids)
         lm_embeddings, mask, weighted0, weighted1 = self.sess.run(
             [ops['lm_embeddings'], ops['mask'],
-             weighted_ops['weighted_ops'][0], weighted_ops['weighted_ops'][1]],
+             weighted_ops[0]['weighted_op'], weighted_ops[1]['weighted_op']],
             feed_dict={character_ids: X_chars}
         )
         actual_elmo = [weighted0, weighted1]
