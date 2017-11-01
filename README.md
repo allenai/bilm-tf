@@ -1,5 +1,5 @@
 # bilm-tf
-Tensorflow implementation of contextualized word representations from bi-directional language models
+Tensorflow implementation of pretrained biLM from ["Deep contextualized word representations"](https://openreview.net/forum?id=S1p31z-Ab).
 
 ## Installing
 Install python version 3.5 or later, tensorflow version 1.2 and h5py:
@@ -9,11 +9,17 @@ pip install tensorflow-gpu==1.2 h5py
 python setup.py install
 ```
 
-Finally, ensure the tests pass in your environment by running:
+Ensure the tests pass in your environment by running:
 ```
 python -m unittest discover tests/
 ```
-# Installing with Docker
+
+Download the pretrained model consisting of an options file and the weight file:
+
+* [options file](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json)
+* [weight file](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5)
+
+## Installing with Docker
 
 You can also run `bilm-tf` using Docker. From the cloned repository, run:
 ```
