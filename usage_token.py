@@ -11,7 +11,7 @@ import os
 from bilm import TokenBatcher, BidirectionalLanguageModel, weight_layers, \
     dump_token_embeddings
 
-# Our small test dataset.
+# Our small dataset.
 raw_context = [
     'Pretrained biLMs compute representations useful for NLP tasks .',
     'They give state of the art performance for many tasks .'

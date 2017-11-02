@@ -100,3 +100,12 @@ and pass `use_token_inputs=False` and the name of the output file from step
 
 See `usage_token.py` for a detailed usage example.
 
+### Dumping biLM embeddings for an entire dataset to a single file.
+
+To take this option, create a text file with your tokenized dataset.  Each line is one tokenized sentence (whitespace separated).  Then use `dump_bilm_embeddings`.
+
+The output file is `hdf5` format.  Each sentence in the input data is stored as a dataset with key `str(sentence_id)` where `sentence_id` is the line number in the dataset file (indexed from 0).
+The embeddings for each sentence are a shape (3, n_tokens, 1024) array.
+
+See `usage_cached.py` for a detailed example.
+
