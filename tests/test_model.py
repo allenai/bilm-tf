@@ -59,11 +59,11 @@ class TestBidirectionalLanguageModel(unittest.TestCase):
         options_file = os.path.join(FIXTURES, 'options.json')
         weight_file = os.path.join(FIXTURES, 'lm_weights.hdf5')
         character_ids = tf.placeholder('int32', (None, None, 50))
-        model = BidirectionalLanguageModel(
-            options_file, weight_file, character_ids, 4)
+        model = BidirectionalLanguageModel(options_file, weight_file,
+            max_batch_size=4)
 
         # get the ops to compute embeddings
-        ops = model.get_ops()
+        ops = model(character_ids)
 
         # initialize
         self.sess.run(tf.global_variables_initializer())
@@ -104,7 +104,9 @@ class TestBidirectionalLanguageModel(unittest.TestCase):
         # be zero.
         third_states = []
         for direction in ['forward', 'backward']:
-            states = self.sess.run(model._lm_graph.lstm_init_states[direction])
+            states = self.sess.run(
+                model._graphs[character_ids].lstm_init_states[direction]
+            )
             for i in range(2):
                 for state in states[i]:
                     self.assertTrue(np.sum(np.abs(state[-1, :])) < 1e-7)
@@ -117,7 +119,9 @@ class TestBidirectionalLanguageModel(unittest.TestCase):
         )
         k = 0
         for direction in ['forward', 'backward']:
-            states = self.sess.run(model._lm_graph.lstm_init_states[direction])
+            states = self.sess.run(
+                model._graphs[character_ids].lstm_init_states[direction]
+            )
             for i in range(2):
                 for state in states[i]:
                     self.assertTrue(
@@ -171,14 +175,14 @@ class TestBidirectionalLanguageModelTokenInput(unittest.TestCase):
         # load the model
         token_ids = tf.placeholder('int32', (None, None))
         model = BidirectionalLanguageModel(
-            options_file, weight_file, token_ids,
+            options_file, weight_file,
             use_character_inputs=False,
             embedding_weight_file=embedding_weight_file,
             max_batch_size=4
         )
 
         # get the ops to compute embeddings
-        ops = model.get_ops()
+        ops = model(token_ids)
 
         # initialize
         self.sess.run(tf.global_variables_initializer())
