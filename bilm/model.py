@@ -265,6 +265,14 @@ class BidirectionalLanguageModelGraph(object):
             )
             return getter(name, *args, **kwargs)
 
+        if embedding_weight_file is not None:
+            # get the vocab size
+            with h5py.File(embedding_weight_file, 'r') as fin:
+                # +1 for padding
+                self._n_tokens_vocab = fin['embedding'].shape[0] + 1
+        else:
+            self._n_tokens_vocab = None
+
         with tf.variable_scope('bilm', custom_getter=custom_getter):
             self._build()
 
@@ -449,14 +457,12 @@ class BidirectionalLanguageModelGraph(object):
 
 
     def _build_word_embeddings(self):
-        n_tokens_vocab = self.options['n_tokens_vocab']
-
         projection_dim = self.options['lstm']['projection_dim']
 
         # the word embeddings
         with tf.device("/cpu:0"):
             self.embedding_weights = tf.get_variable(
-                "embedding", [n_tokens_vocab, projection_dim],
+                "embedding", [self._n_tokens_vocab, projection_dim],
                 dtype=DTYPE,
             )
             self.embedding = tf.nn.embedding_lookup(self.embedding_weights,
