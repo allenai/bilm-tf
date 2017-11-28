@@ -72,13 +72,20 @@ class Vocabulary(object):
         """Convert a list of ids to a sentence, with space inserted."""
         return ' '.join([self.id_to_word(cur_id) for cur_id in cur_ids])
 
-    def encode(self, sentence, reverse=False):
+    def encode(self, sentence, reverse=False, split=True):
         """Convert a sentence to a list of ids, with special tokens added.
         Sentence is a single string with tokens separated by whitespace.
 
         If reverse, then the sentence is assumed to be reversed, and
             this method will swap the BOS/EOS tokens appropriately."""
-        word_ids = [self.word_to_id(cur_word) for cur_word in sentence.split()]
+
+        if split:
+            word_ids = [
+                self.word_to_id(cur_word) for cur_word in sentence.split()
+            ]
+        else:
+            word_ids = [self.word_to_id(cur_word) for cur_word in sentence]
+
         if reverse:
             return np.array([self.eos] + word_ids + [self.bos], dtype=np.int32)
         else:
@@ -157,12 +164,16 @@ class UnicodeCharsVocabulary(Vocabulary):
         else:
             return self._convert_word_to_char_ids(word)
 
-    def encode_chars(self, sentence, reverse=False):
+    def encode_chars(self, sentence, reverse=False, split=True):
         '''
         Encode the sentence as a white space delimited string of tokens.
         '''
-        chars_ids = [self.word_to_char_ids(cur_word)
+        if split:
+            chars_ids = [self.word_to_char_ids(cur_word)
                      for cur_word in sentence.split()]
+        else:
+            chars_ids = [self.word_to_char_ids(cur_word)
+                     for cur_word in sentence]
         if reverse:
             return np.vstack([self.eos_chars] + chars_ids + [self.bos_chars])
         else:
@@ -173,7 +184,7 @@ class Batcher(object):
     ''' 
     Batch sentences of tokenized text into character id matrices.
     '''
-    def __init__(self, lm_vocab_file: str, max_token_length: str):
+    def __init__(self, lm_vocab_file: str, max_token_length: int):
         '''
         lm_vocab_file = the language model vocabulary file (one line per
             token)
@@ -200,7 +211,8 @@ class Batcher(object):
 
         for k, sent in enumerate(sentences):
             length = len(sent) + 2
-            char_ids_without_mask = self._lm_vocab.encode_chars(' '.join(sent))
+            char_ids_without_mask = self._lm_vocab.encode_chars(
+                sent, split=False)
             # add one so that 0 is the mask value
             X_char_ids[k, :length, :] = char_ids_without_mask + 1
 
@@ -231,7 +243,7 @@ class TokenBatcher(object):
 
         for k, sent in enumerate(sentences):
             length = len(sent) + 2
-            ids_without_mask = self._lm_vocab.encode(' '.join(sent))
+            ids_without_mask = self._lm_vocab.encode(sent, split=False)
             # add one so that 0 is the mask value
             X_ids[k, :length] = ids_without_mask + 1
 
