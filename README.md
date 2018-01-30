@@ -1,5 +1,6 @@
 # bilm-tf
-Tensorflow implementation of pretrained biLM from ["Deep contextualized word representations"](https://openreview.net/forum?id=S1p31z-Ab).
+Tensorflow implementation of the pretrained biLM used to compute ELMo
+representations from ["Deep contextualized word representations"](https://openreview.net/forum?id=S1p31z-Ab).
 
 ## Installing
 Install python version 3.5 or later, tensorflow version 1.2 and h5py:
