@@ -22,17 +22,11 @@ Download the pretrained model consisting of an options file and the weight file:
 
 ## Installing with Docker
 
-You can also run `bilm-tf` using Docker. From the cloned repository, run:
-```
-sudo docker build -t bilm-tf .
-```
 To run the image, you must use nvidia-docker, because this repository
 requires GPUs.
 ```
-sudo nvidia-docker run -t bilm-tf
+sudo nvidia-docker run -t allenai/bilm-tf:acc2f81d97fb2edd5174c797ae8ca415501deab1-GPU
 ```
-
-TODO: Add public image once it is released.
 
 ## Usage overview
 There are three ways to integrate ELMo representations into a downstream task, depending on your use case.
