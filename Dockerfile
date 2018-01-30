@@ -37,7 +37,7 @@ COPY bilm/ bilm/
 COPY tests/ tests/
 COPY README.md README.md
 COPY setup.py setup.py
-COPY usage.py usage.py
+COPY usage*.py ./
 COPY run_tests_before_shell.sh run_tests_before_shell.sh
 
 # Install package.
