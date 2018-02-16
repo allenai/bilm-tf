@@ -1,6 +1,6 @@
 # bilm-tf
 Tensorflow implementation of the pretrained biLM used to compute ELMo
-representations from ["Deep contextualized word representations"](https://openreview.net/forum?id=S1p31z-Ab).
+representations from ["Deep contextualized word representations"](http://arxiv.org/abs/1802.05365).
 
 We also have a pytorch implementation available in [AllenNLP](http://allennlp.org/).
 
