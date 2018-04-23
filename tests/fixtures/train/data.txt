@@ -1,0 +1,5 @@
+neural language models use continuous representations or embeddings of words to make their predictions .
+these models make use of neural networks .
+continuous space embeddings help to alleviate the curse of dimensionality in language modeling : as language models are trained on larger and larger texts , the number of unique words ( the vocabulary ) increases and the number of possible sequences of words increases exponentially with the size of the vocabulary , causing a data sparsity problem because for each of the exponentially many sequences , statistics are needed to properly estimate probabilities .
+neural networks avoid this problem by representing words in a distributed way , as non - linear combinations of weights in a neural net .
+the neural net architecture might be feed - forward or recurrent .
