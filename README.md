@@ -2,7 +2,23 @@
 Tensorflow implementation of the pretrained biLM used to compute ELMo
 representations from ["Deep contextualized word representations"](http://arxiv.org/abs/1802.05365).
 
+This repository supports both training biLMs and using pre-trained models for prediction.
+
 We also have a pytorch implementation available in [AllenNLP](http://allennlp.org/).
+
+You may also find it easier to use the version provided in [Tensorflow Hub](https://www.tensorflow.org/hub/modules/google/elmo/1) if you just like to make predictions.
+
+Citation:
+
+```
+@inproceedings{Peters:2018,
+  author={Peters, Matthew E. and  Neumann, Mark and Iyyer, Mohit and Gardner, Matt and Clark, Christopher and Lee, Kenton and Zettlemoyer, Luke},
+  title={Deep contextualized word representations},
+  booktitle={Proc. of NAACL},
+  year={2018}
+}
+```
+
 
 ## Installing
 Install python version 3.5 or later, tensorflow version 1.2 and h5py:
@@ -17,7 +33,7 @@ Ensure the tests pass in your environment by running:
 python -m unittest discover tests/
 ```
 
-Download the pretrained model consisting of an options file and the weight file:
+To make predictions with the pre-trained model, download the options file and weight file:
 
 * [options file](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json)
 * [weight file](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5)
@@ -30,7 +46,7 @@ requires GPUs.
 sudo nvidia-docker run -t allenai/bilm-tf:acc2f81d97fb2edd5174c797ae8ca415501deab1-GPU
 ```
 
-## Usage overview
+## Using pre-trained models
 There are three ways to integrate ELMo representations into a downstream task, depending on your use case.
 
 1. Compute representations on the fly from raw text using character input.  This is the most general method and will handle any input text.  It is also the most computationally expensive.
@@ -105,4 +121,77 @@ The output file is `hdf5` format.  Each sentence in the input data is stored as 
 The embeddings for each sentence are a shape (3, n_tokens, 1024) array.
 
 See `usage_cached.py` for a detailed example.
+
+## Training a biLM on a new corpus
+
+Broadly speaking, the process to train and use a new biLM is:
+
+1.  Prepare input data and a vocabulary file.
+2.  Train the biLM.
+3.  Test (compute the perplexity of) the biLM on heldout data.
+4.  Write out the weights from the trained biLM to a hdf5 file.
+5.  See the instructions above for using the output from Step #4 in downstream models.
+
+
+#### 1.  Prepare input data and a vocabulary file.
+To train and evaluate a biLM, you need to provide:
+
+* a vocabulary file
+* a set of training files
+* a set of heldout files
+
+The vocabulary file is a a text file with one token per line.  It must also include the special tokens `<S>`, `</S>` and `<UNK>` (case sensitive) in the file.
+
+<i>IMPORTANT</i>: the vocabulary file should be sorted in descending order by token count in your training data.  The first three lines should be the special tokens (`<S>`, `</S>` and `<UNK>`), then the most common token in the training data, ending with the least common token.
+
+<i>NOTE</i>: the vocabulary file used in training may differ from the one use for prediction.
+
+The training data should be randomly split into many training files,
+each containing one slice of the data.  Each file contains pre-tokenized and
+white space separated text, one sentence per line.
+Don't include the `<S>` or `</S>` tokens in your training data.
+
+All tokenization/normalization is done before training a model, so both
+the vocabulary file and training files should include normalized tokens.
+As the default settings use a fully character based token representation, in general we do not recommend any normalization other then tokenization.
+
+Finally, reserve a small amount of the training data as heldout data for evaluating the trained biLM.
+
+#### 2.  Train the biLM.
+The hyperparameters used to train the ELMo model can be found in `bin/train_elmo.py`.
+
+The ELMo model was trained on 3 GPUs.
+To train a new model with the same hyperparameters, first download the training data from the [1 Billion Word Benchmark](http://www.statmt.org/lm-benchmark/).
+Then download the [vocabulary file](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/vocab-2016-09-10.txt).
+Finally, run:
+
+```
+export CUDA_VISIBLE_DEVICES=0,1,2
+python bin/train_elmo.py \
+    --train_prefix='/path/to/1-billion-word-language-modeling-benchmark-r13output/training-monolingual.tokenized.shuffled/*' \
+    --vocab_file /path/to/vocab-2016-09-10.txt \
+    --save_dir /output_path/to/checkpoint
+```
+
+#### 3. Evaluate the trained model.
+
+Use `bin/run_test.py` to evaluate a trained model, e.g.
+
+```
+export CUDA_VISIBLE_DEVICES=0
+python bin/run_test.py \
+    --test_prefix='/path/to/1-billion-word-language-modeling-benchmark-r13output/heldout-monolingual.tokenized.shuffled/news.en.heldout-000*' \
+    --vocab_file /path/to/vocab-2016-09-10.txt \
+    --save_dir /output_path/to/checkpoint
+```
+
+#### 4. Convert the tensorflow checkpoint to hdf5 for prediction with `bilm` or `allennlp`.
+
+Run:
+
+```
+python bin/dump_weights.py \
+    --save_dir /output_path/to/checkpoint
+    --outfile /output_path/to/weights.hdf5
+```
 
