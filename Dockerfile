@@ -34,6 +34,7 @@ RUN conda install python=3.5
 
 # Copy files.
 COPY bilm/ bilm/
+COPY bin/ bin/
 COPY tests/ tests/
 COPY README.md README.md
 COPY setup.py setup.py

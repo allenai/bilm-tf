@@ -43,7 +43,7 @@ To make predictions with the pre-trained model, download the options file and we
 To run the image, you must use nvidia-docker, because this repository
 requires GPUs.
 ```
-sudo nvidia-docker run -t allenai/bilm-tf:acc2f81d97fb2edd5174c797ae8ca415501deab1-GPU
+sudo nvidia-docker run -t allennlp/bilm-tf:training-gpu
 ```
 
 ## Using pre-trained models
