@@ -158,7 +158,7 @@ class UnicodeCharsVocabulary(Vocabulary):
         code[0] = self.bow_char
         for k, chr_id in enumerate(word_encoded, start=1):
             code[k] = chr_id
-        code[k + 1] = self.eow_char
+        code[len(word_encoded)] = self.eow_char
 
         return code
 
@@ -185,7 +185,7 @@ class UnicodeCharsVocabulary(Vocabulary):
 
 
 class Batcher(object):
-    ''' 
+    '''
     Batch sentences of tokenized text into character id matrices.
     '''
     def __init__(self, lm_vocab_file: str, max_token_length: int):
@@ -224,7 +224,7 @@ class Batcher(object):
 
 
 class TokenBatcher(object):
-    ''' 
+    '''
     Batch sentences of tokenized text into token id matrices.
     '''
     def __init__(self, lm_vocab_file: str):
