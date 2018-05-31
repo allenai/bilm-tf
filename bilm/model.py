@@ -38,7 +38,7 @@ class BidirectionalLanguageModel(object):
         weight_file: location of the hdf5 file with LM weights
         use_character_inputs: if True, then use character ids as input,
             otherwise use token ids
-        max_batch_size: the maximum allowable batch size 
+        max_batch_size: the maximum allowable batch size
         '''
         with open(options_file, 'r') as fin:
             options = json.load(fin)
@@ -136,7 +136,7 @@ class BidirectionalLanguageModel(object):
             for layer in layers:
                 layer_wo_bos_eos = layer[:, 1:, :]
                 layer_wo_bos_eos = tf.reverse_sequence(
-                    layer_wo_bos_eos, 
+                    layer_wo_bos_eos,
                     lm_graph.sequence_lengths - 1,
                     seq_axis=1,
                     batch_axis=0,
@@ -176,7 +176,7 @@ class BidirectionalLanguageModel(object):
             mask_wo_bos_eos = tf.cast(mask_wo_bos_eos, 'bool')
 
         return {
-            'lm_embeddings': lm_embeddings, 
+            'lm_embeddings': lm_embeddings,
             'lengths': sequence_length_wo_bos_eos,
             'token_embeddings': lm_graph.embedding,
             'mask': mask_wo_bos_eos,
@@ -232,7 +232,7 @@ def _pretrained_initializer(varname, weight_file, embedding_weight_file=None):
     # Tensorflow initializers are callables that accept a shape parameter
     # and some optional kwargs
     def ret(shape, **kwargs):
-        if list(shape) != list(weights.shape):
+        if list(shape) != list(weights.shape) and varname_in_file not in ['embedding', 'char_embed']:
             raise ValueError(
                 "Invalid shape initializing {0}, got {1}, expected {2}".format(
                     varname_in_file, shape, weights.shape)
@@ -588,7 +588,7 @@ class BidirectionalLanguageModelGraph(object):
                              init_states[i][batch_size:, :]], axis=0)
                         state_update_op = tf.assign(init_states[i], new_state)
                         update_ops.append(state_update_op)
-    
+
                 layer_input = layer_output
 
         self.mask = mask
