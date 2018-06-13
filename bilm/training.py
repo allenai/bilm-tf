@@ -615,7 +615,7 @@ def summary_gradient_updates(grads, opt, lr):
         values_norm = tf.sqrt(tf.reduce_sum(v * v)) + 1.0e-7
         updates_norm = tf.sqrt(tf.reduce_sum(updates * updates))
         ret.append(
-            tf.summary.scalar('UPDATE/' + vname, updates_norm / values_norm))
+                tf.summary.scalar('UPDATE/' + vname.replace(":", "_"), updates_norm / values_norm))
 
     return ret
 
@@ -740,7 +740,7 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
 
         # histograms of variables
         for v in tf.global_variables():
-            histogram_summaries.append(tf.summary.histogram(v.name, v))
+            histogram_summaries.append(tf.summary.histogram(v.name.replace(":", "_"), v))
 
         # get the gradient updates -- these aren't histograms, but we'll
         # only update them when histograms are computed
@@ -901,7 +901,7 @@ def clip_by_global_norm_summary(t_list, clip_norm, norm_name, variables):
     # summary ops before clipping
     summary_ops = []
     for ns, v in zip(norms, variables):
-        name = 'norm_pre_clip/' + v.name
+        name = 'norm_pre_clip/' + v.name.replace(":", "_")
         summary_ops.append(tf.summary.scalar(name, ns))
 
     # clip 
@@ -910,7 +910,7 @@ def clip_by_global_norm_summary(t_list, clip_norm, norm_name, variables):
     # summary ops after clipping
     norms_post = [tf.global_norm([t]) for t in clipped_t_list]
     for ns, v in zip(norms_post, variables):
-        name = 'norm_post_clip/' + v.name
+        name = 'norm_post_clip/' + v.name.replace(":", "_")
         summary_ops.append(tf.summary.scalar(name, ns))
 
     summary_ops.append(tf.summary.scalar(norm_name, tf_norm))
