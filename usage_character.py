@@ -67,6 +67,7 @@ with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
     # Create batches of data.
+    # NOTE: ensure your batch size < max_batch_size, default is 128
     context_ids = batcher.batch_sentences(tokenized_context)
     question_ids = batcher.batch_sentences(tokenized_question)
 
