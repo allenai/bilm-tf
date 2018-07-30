@@ -6,7 +6,7 @@ This repository supports both training biLMs and using pre-trained models for pr
 
 We also have a pytorch implementation available in [AllenNLP](http://allennlp.org/).
 
-You may also find it easier to use the version provided in [Tensorflow Hub](https://www.tensorflow.org/hub/modules/google/elmo/1) if you just like to make predictions.
+You may also find it easier to use the version provided in [Tensorflow Hub](https://www.tensorflow.org/hub/modules/google/elmo/2) if you just like to make predictions.
 
 Citation:
 
@@ -33,11 +33,6 @@ Ensure the tests pass in your environment by running:
 python -m unittest discover tests/
 ```
 
-To make predictions with the pre-trained model, download the options file and weight file:
-
-* [options file](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json)
-* [weight file](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5)
-
 ## Installing with Docker
 
 To run the image, you must use nvidia-docker, because this repository
@@ -47,6 +42,13 @@ sudo nvidia-docker run -t allennlp/bilm-tf:training-gpu
 ```
 
 ## Using pre-trained models
+
+We have several different English language pre-trained biLMs available for use.
+Each model is specified with two separate files, a JSON formatted "options"
+file with hyperparameters and a hdf5 formatted file with the model
+weights.  Links to the pre-trained models are available [here](https://allennlp.org/elmo).
+
+
 There are three ways to integrate ELMo representations into a downstream task, depending on your use case.
 
 1. Compute representations on the fly from raw text using character input.  This is the most general method and will handle any input text.  It is also the most computationally expensive.
@@ -187,11 +189,88 @@ python bin/run_test.py \
 
 #### 4. Convert the tensorflow checkpoint to hdf5 for prediction with `bilm` or `allennlp`.
 
-Run:
+First, create an `options.json` file for the newly trained model.  To do so,
+follow the template in an existing file (e.g. the [original `options.json`](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json) and modify for your hyperpararameters.
+
+**Important**: always set `n_characters` to 262 after training (see below).
+
+Then Run:
 
 ```
 python bin/dump_weights.py \
     --save_dir /output_path/to/checkpoint
     --outfile /output_path/to/weights.hdf5
 ```
+
+## Frequently asked questions and other warnings
+
+#### Can you provide the tensorflow checkpoint from training?
+The tensorflow checkpoint is available by downloading these files:
+
+* [vocabulary](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/vocab-2016-09-10.txt)
+* [checkpoint](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/checkpoint)
+* [options](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/options.json)
+* [1](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/model.ckpt-935588.data-00000-of-00001)
+* [2](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/model.ckpt-935588.index)
+* [3](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/model.ckpt-935588.meta)
+
+
+#### How to do fine tune a model on additional unlabeled data?
+
+First download the checkpoint files above.
+Then prepare the dataset as described in the section "Training a biLM on a new corpus", with the exception that we will use the existing vocabulary file instead of creating a new one.  Finally, use the script `bin/restart.py` to restart training with the existing checkpoint on the new dataset.
+For small datasets (e.g. < 10 million tokens) we only recommend tuning for a small number of epochs and monitoring the perplexity on a heldout set, otherwise the model will overfit the small dataset.
+
+#### Are the softmax weights available?
+
+They are available in the training checkpoint above.
+
+#### Can you provide some more details about how the model was trained?
+The script `bin/train_elmo.py` has hyperparameters for training the model.
+The original model was trained on 3 GTX 1080 for 10 epochs, taking about
+two weeks.
+
+For input processing, we used the raw 1 Billion Word Benchmark dataset
+[here](
+http://www.statmt.org/lm-benchmark/1-billion-word-language-modeling-benchmark-r13output.tar.gz), and the existing vocabulary of 793471 tokens, including `<S>`, `</S>` and `<UNK>`.
+You can find our vocabulary file [here](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/vocab-2016-09-10.txt).
+At the model input, all text used the full character based representation,
+including tokens outside the vocab.
+For the softmax output we replaced OOV tokens with `<UNK>`.
+
+The model was trained with a fixed size window of 20 tokens.
+The batches were constructed by padding sentences with `<S>` and `</S>`, then packing tokens from one or more sentences into each row to fill completely fill each batch.
+Partial sentences and the LSTM states were carried over from batch to batch so that the language model could use information across batches for context, but backpropogation was broken at each batch boundary.
+
+#### Why do I get slightly different embeddings if I run the same text through the pre-trained model twice?
+As a result of the training method (see above), the LSTMs are stateful, and carry their state forward from batch to batch.
+Consequently, this introduces a small amount of non-determinism, expecially
+for the first two batches.
+
+#### Why does training seem to take forever even with my small dataset?
+The number of gradient updates during training is determined by:
+
+* the number of tokens in the training data (`n_train_tokens`)
+* the batch size (`batch_size`)
+* the number of epochs (`n_epochs`)
+
+Be sure to set these values for your particular dataset in `bin/train_elmo.py`.
+
+
+#### What's the deal with `n_characters` and padding?
+During training, we fill each batch to exactly 20 tokens by adding `<S>` and `</S>` to each sentence, then packing tokens from one or more sentences into each row to fill completely fill each batch.
+As a result, we do not allocate space for a special padding token.
+The `UnicodeCharsVocabulary` that converts token strings to lists of character
+ids always uses a fixed number of character embeddings of `n_characters=261`, so always
+set `n_characters=261` during training.
+
+However, for prediction, we ensure each sentence is fully contained in a single batch,
+and as a result pad sentences of different lengths with a special padding id.
+This occurs in the `Batcher` [see here](https://github.com/allenai/bilm-tf/blob/master/bilm/data.py#L220).
+As a result, set `n_characters=262` during prediction in the `options.json`.
+
+#### How can I use ELMo to compute sentence representations?
+Simple methods like average and max pooling of the word level ELMo representations across sentences works well, often outperforming supervised methods on benchmark datasets.
+See "Evaluation of sentence embeddings in downstream and linguistic probing tasks", Perone et al, 2018 [arxiv link](https://arxiv.org/abs/1806.06259).
+
 

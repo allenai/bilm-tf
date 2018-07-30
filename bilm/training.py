@@ -12,7 +12,8 @@ import numpy as np
 
 from tensorflow.python.ops.init_ops import glorot_uniform_initializer
 
-from .data import Vocabulary, UnicodeCharsVocabulary
+from .data import Vocabulary, UnicodeCharsVocabulary, InvalidNumberOfCharacters
+
 
 DTYPE = 'float32'
 DTYPE_INT = 'int64'
@@ -105,10 +106,10 @@ class LanguageModel(object):
         '''
         options contains key 'char_cnn': {
 
-        'n_characters': 60,
+        'n_characters': 262,
 
         # includes the start / end characters
-        'max_characters_per_token': 17,
+        'max_characters_per_token': 50,
 
         'filters': [
             [1, 32],
@@ -139,6 +140,10 @@ class LanguageModel(object):
         max_chars = cnn_options['max_characters_per_token']
         char_embed_dim = cnn_options['embedding']['dim']
         n_chars = cnn_options['n_characters']
+        if n_chars != 261:
+            raise InvalidNumberOfCharacters(
+                    "Set n_characters=261 for training see the README.md"
+            )
         if cnn_options['activation'] == 'tanh':
             activation = tf.nn.tanh
         elif cnn_options['activation'] == 'relu':
