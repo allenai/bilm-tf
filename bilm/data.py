@@ -106,6 +106,13 @@ class UnicodeCharsVocabulary(Vocabulary):
     This limits the total number of possible char ids to 256.
     To this we add 5 additional special ids: begin sentence, end sentence,
         begin word, end word and padding.
+
+    WARNING: for prediction, we add +1 to the output ids from this
+    class to create a special padding id (=0).  As a result, we suggest
+    you use the `Batcher`, `TokenBatcher`, and `LMDataset` classes instead
+    of this lower level class.  If you are using this lower level class,
+    then be sure to add the +1 appropriately, otherwise embeddings computed
+    from the pre-trained model will be useless.
     """
     def __init__(self, filename, max_word_length, **kwargs):
         super(UnicodeCharsVocabulary, self).__init__(filename, **kwargs)
