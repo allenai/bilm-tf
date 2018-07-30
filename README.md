@@ -206,8 +206,24 @@ python bin/dump_weights.py \
 
 #### Can you provide the tensorflow checkpoint from training?
 The tensorflow checkpoint is available by downloading these files:
-[vocabulary](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/vocab-2016-09-10.txt) [checkpoint](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/checkpoint) [options](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/options.json) [1](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/model.ckpt-935588.data-00000-of-00001) [2](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/model.ckpt-935588.index) [3](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/model.ckpt-935588.meta)
 
+* [vocabulary](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/vocab-2016-09-10.txt)
+* [checkpoint](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/checkpoint)
+* [options](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/options.json)
+* [1](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/model.ckpt-935588.data-00000-of-00001)
+* [2](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/model.ckpt-935588.index)
+* [3](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/model.ckpt-935588.meta)
+
+
+#### How to do fine tune a model on additional unlabeled data?
+
+First download the checkpoint files above.
+Then prepare the dataset as described in the section "Training a biLM on a new corpus", with the exception that we will use the existing vocabulary file instead of creating a new one.  Finally, use the script `bin/restart.py` to restart training with the existing checkpoint on the new dataset.
+For small datasets (e.g. < 10 million tokens) we only recommend tuning for a small number of epochs and monitoring the perplexity on a heldout set, otherwise the model will overfit the small dataset.
+
+#### Are the softmax weights available?
+
+They are available in the training checkpoint above.
 
 #### Can you provide some more details about how the model was trained?
 The script `bin/train_elmo.py` has hyperparameters for training the model.
