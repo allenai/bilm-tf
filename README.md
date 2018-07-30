@@ -6,7 +6,7 @@ This repository supports both training biLMs and using pre-trained models for pr
 
 We also have a pytorch implementation available in [AllenNLP](http://allennlp.org/).
 
-You may also find it easier to use the version provided in [Tensorflow Hub](https://www.tensorflow.org/hub/modules/google/elmo/1) if you just like to make predictions.
+You may also find it easier to use the version provided in [Tensorflow Hub](https://www.tensorflow.org/hub/modules/google/elmo/2) if you just like to make predictions.
 
 Citation:
 
@@ -33,11 +33,6 @@ Ensure the tests pass in your environment by running:
 python -m unittest discover tests/
 ```
 
-To make predictions with the pre-trained model, download the options file and weight file:
-
-* [options file](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json)
-* [weight file](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5)
-
 ## Installing with Docker
 
 To run the image, you must use nvidia-docker, because this repository
@@ -47,6 +42,13 @@ sudo nvidia-docker run -t allennlp/bilm-tf:training-gpu
 ```
 
 ## Using pre-trained models
+
+We have several different English language pre-trained biLMs available for use.
+Each model is specified with two separate files, a JSON formatted "options"
+file with hyperparameters and a hdf5 formatted file with the model
+weights.  Links to the pre-trained models are available [here](https://allennlp.org/elmo).
+
+
 There are three ways to integrate ELMo representations into a downstream task, depending on your use case.
 
 1. Compute representations on the fly from raw text using character input.  This is the most general method and will handle any input text.  It is also the most computationally expensive.
