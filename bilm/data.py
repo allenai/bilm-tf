@@ -7,7 +7,6 @@ import numpy as np
 from typing import List
 
 
-
 class Vocabulary(object):
     '''
     A token vocabulary.  Holds a map from token to ids and provides
@@ -459,4 +458,8 @@ class BidirectionalLMDataset(object):
                 X[k + '_reverse'] = v
 
             yield X
+
+
+class InvalidNumberOfCharacters(Exception):
+    pass
 

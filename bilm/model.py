@@ -287,10 +287,10 @@ class BidirectionalLanguageModelGraph(object):
         '''
         options contains key 'char_cnn': {
 
-        'n_characters': 60,
+        'n_characters': 262,
 
         # includes the start / end characters
-        'max_characters_per_token': 17,
+        'max_characters_per_token': 50,
 
         'filters': [
             [1, 32],
@@ -319,6 +319,10 @@ class BidirectionalLanguageModelGraph(object):
         max_chars = cnn_options['max_characters_per_token']
         char_embed_dim = cnn_options['embedding']['dim']
         n_chars = cnn_options['n_characters']
+        if n_chars != 262:
+            raise InvalidNumberOfCharacters(
+                "Set n_characters=262 after training see the README.md"
+            )
         if cnn_options['activation'] == 'tanh':
             activation = tf.nn.tanh
         elif cnn_options['activation'] == 'relu':
