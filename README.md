@@ -215,7 +215,7 @@ http://www.statmt.org/lm-benchmark/1-billion-word-language-modeling-benchmark-r1
 You can find our vocabulary file [here](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/vocab-2016-09-10.txt).
 At the model input, all text used the full character based representation,
 including tokens outside the vocab.
-For the softmax output we replaced OOV tokens with <UNK>.
+For the softmax output we replaced OOV tokens with `<UNK>`.
 
 The model was trained with a fixed size window of 20 tokens.
 The batches were constructed by padding sentences with <S> and </S>, then packing tokens from one or more sentences into each row to fill completely fill each batch.
