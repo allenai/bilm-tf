@@ -189,11 +189,32 @@ python bin/run_test.py \
 
 #### 4. Convert the tensorflow checkpoint to hdf5 for prediction with `bilm` or `allennlp`.
 
-Run:
+First, create an `options.json` file for the newly trained model.  To do so,
+follow the template in an existing file (e.g. the [original `options.json`](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json) and modify for your hyperpararameters.
+
+**Important**: always set `n_characters` to 262 after training.
+
+Then Run:
 
 ```
 python bin/dump_weights.py \
     --save_dir /output_path/to/checkpoint
     --outfile /output_path/to/weights.hdf5
 ```
+
+## Frequently asked questions and other warnings
+
+#### What's the deal with `n_characters` and padding?
+During training, we fill each batch to exactly 20 tokens by adding `<S>` and `</S>` each sentence, then packing tokens from one or more sentences into each row to fill completely fill each batch.
+As a result, we do not allocate space for a special padding token.
+The `UnicodeCharsVocabulary` that converts token strings to lists of character
+ids always uses a fixed number of characters of `n_characters=261`, so always
+set `n_characters=261` during training.
+
+However, for prediction, we ensure each sentence is fully contained in a single batch,
+and as a result pad sentences of different lengths with a special padding id.
+This occurs in the `Batcher` [see](https://github.com/allenai/bilm-tf/blob/master/bilm/data.py#L220).
+As a result, set `n_characters=262` during prediction, and in the `options.json`.
+
+
 
