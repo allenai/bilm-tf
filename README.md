@@ -218,7 +218,7 @@ including tokens outside the vocab.
 For the softmax output we replaced OOV tokens with `<UNK>`.
 
 The model was trained with a fixed size window of 20 tokens.
-The batches were constructed by padding sentences with <S> and </S>, then packing tokens from one or more sentences into each row to fill completely fill each batch.
+The batches were constructed by padding sentences with `<S>` and `</S>`, then packing tokens from one or more sentences into each row to fill completely fill each batch.
 Partial sentences and the LSTM states were carried over from batch to batch so that the language model could use information across batches for context, but backpropogation was broken at each batch boundary.
 
 #### Why do I get slightly different embeddings if I run the same text through the pre-trained model twice?
@@ -228,10 +228,13 @@ for the first two batches.
 
 #### Why does training seem to take forever even with my small dataset?
 The number of gradient updates during training is determined by:
-    * the number of tokens in the training data (`n_train_tokens`)
-    * the batch size (`batch_size`)
-    * the number of epochs (`n_epochs`)
+
+* the number of tokens in the training data (`n_train_tokens`)
+* the batch size (`batch_size`)
+* the number of epochs (`n_epochs`)
+
 Be sure to set these values for your particular dataset in `bin/train_elmo.py`.
+
 
 #### What's the deal with `n_characters` and padding?
 During training, we fill each batch to exactly 20 tokens by adding `<S>` and `</S>` to each sentence, then packing tokens from one or more sentences into each row to fill completely fill each batch.
