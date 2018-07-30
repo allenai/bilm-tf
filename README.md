@@ -192,7 +192,7 @@ python bin/run_test.py \
 First, create an `options.json` file for the newly trained model.  To do so,
 follow the template in an existing file (e.g. the [original `options.json`](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json) and modify for your hyperpararameters.
 
-**Important**: always set `n_characters` to 262 after training.
+**Important**: always set `n_characters` to 262 after training (see below).
 
 Then Run:
 
@@ -204,17 +204,46 @@ python bin/dump_weights.py \
 
 ## Frequently asked questions and other warnings
 
+#### Can you provide some more details about how the model was trained?
+The script `bin/train_elmo.py` has hyperparameters for training the model.
+The original model was trained on 3 GTX 1080 for 10 epochs, taking about
+two weeks.
+
+For input processing, we used the raw 1 Billion Word Benchmark dataset
+[here](
+http://www.statmt.org/lm-benchmark/1-billion-word-language-modeling-benchmark-r13output.tar.gz), and the existing vocabulary of 793471 tokens, including `<S>`, `</S>` and `<UNK>`.
+You can find our vocabulary file [here](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/vocab-2016-09-10.txt).
+At the model input, all text used the full character based representation,
+including tokens outside the vocab.
+For the softmax output we replaced OOV tokens with <UNK>.
+
+The model was trained with a fixed size window of 20 tokens.
+The batches were constructed by padding sentences with <S> and </S>, then packing tokens from one or more sentences into each row to fill completely fill each batch.
+Partial sentences and the LSTM states were carried over from batch to batch so that the language model could use information across batches for context, but backpropogation was broken at each batch boundary.
+
+#### Why do I get slightly different embeddings if I run the same text through the pre-trained model twice?
+As a result of the training method (see above), the LSTMs are stateful, and carry their state forward from batch to batch.
+Consequently, this introduces a small amount of non-determinism, expecially
+for the first two batches.
+
+#### Why does training seem to take forever even with my small dataset?
+The number of gradient updates during training is determined by:
+    * the number of tokens in the training data (`n_train_tokens`)
+    * the batch size (`batch_size`)
+    * the number of epochs (`n_epochs`)
+Be sure to set these values for your particular dataset in `bin/train_elmo.py`.
+
 #### What's the deal with `n_characters` and padding?
-During training, we fill each batch to exactly 20 tokens by adding `<S>` and `</S>` each sentence, then packing tokens from one or more sentences into each row to fill completely fill each batch.
+During training, we fill each batch to exactly 20 tokens by adding `<S>` and `</S>` to each sentence, then packing tokens from one or more sentences into each row to fill completely fill each batch.
 As a result, we do not allocate space for a special padding token.
 The `UnicodeCharsVocabulary` that converts token strings to lists of character
-ids always uses a fixed number of characters of `n_characters=261`, so always
+ids always uses a fixed number of character embeddings of `n_characters=261`, so always
 set `n_characters=261` during training.
 
 However, for prediction, we ensure each sentence is fully contained in a single batch,
 and as a result pad sentences of different lengths with a special padding id.
-This occurs in the `Batcher` [see](https://github.com/allenai/bilm-tf/blob/master/bilm/data.py#L220).
-As a result, set `n_characters=262` during prediction, and in the `options.json`.
+This occurs in the `Batcher` [see here](https://github.com/allenai/bilm-tf/blob/master/bilm/data.py#L220).
+As a result, set `n_characters=262` during prediction in the `options.json`.
 
 
 
