@@ -204,6 +204,11 @@ python bin/dump_weights.py \
 
 ## Frequently asked questions and other warnings
 
+#### Can you provide the tensorflow checkpoint from training?
+The tensorflow checkpoint is available by downloading these files:
+[vocabulary](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/vocab-2016-09-10.txt) [checkpoint](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/checkpoint) [options](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/options.json) [1](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/model.ckpt-935588.data-00000-of-00001) [2](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/model.ckpt-935588.index) [3](https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway_tf_checkpoint/model.ckpt-935588.meta)
+
+
 #### Can you provide some more details about how the model was trained?
 The script `bin/train_elmo.py` has hyperparameters for training the model.
 The original model was trained on 3 GTX 1080 for 10 epochs, taking about
@@ -248,5 +253,8 @@ and as a result pad sentences of different lengths with a special padding id.
 This occurs in the `Batcher` [see here](https://github.com/allenai/bilm-tf/blob/master/bilm/data.py#L220).
 As a result, set `n_characters=262` during prediction in the `options.json`.
 
+#### How can I use ELMo to compute sentence representations?
+Simple methods like average and max pooling of the word level ELMo representations across sentences works well, often outperforming supervised methods on benchmark datasets.
+See "Evaluation of sentence embeddings in downstream and linguistic probing tasks", Perone et al, 2018 [arxiv link](https://arxiv.org/abs/1806.06259).
 
 
