@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name='bilm',
-    version='0.1.post3',
+    version='0.1.post4',
     url='http://github.com/allenai/bilm-tf',
     packages=setuptools.find_packages(),
     tests_require=[],
@@ -43,6 +43,6 @@ setuptools.setup(
     author='Matthew E. Peters, Mark Neumann, Mohit Iyyer, Matt Gardner, Christopher Clark, Kenton Lee, Luke Zettlemoyer',
     author_email='allennlp-contact@allenai.org',
     maintainer='Philip May',
-    maintainer_email='pm@eniak.de',
+    maintainer_email='eniak.info@gmail.com',
 )
 
