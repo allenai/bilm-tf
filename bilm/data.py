@@ -1,7 +1,7 @@
 # originally based on https://github.com/tensorflow/models/tree/master/lm_1b
 import glob
 import random
-
+import os
 import numpy as np
 
 from typing import List
@@ -191,7 +191,7 @@ class UnicodeCharsVocabulary(Vocabulary):
 
 
 class Batcher(object):
-    ''' 
+    '''
     Batch sentences of tokenized text into character id matrices.
     '''
     def __init__(self, lm_vocab_file: str, max_token_length: int):
@@ -230,7 +230,7 @@ class Batcher(object):
 
 
 class TokenBatcher(object):
-    ''' 
+    '''
     Batch sentences of tokenized text into token id matrices.
     '''
     def __init__(self, lm_vocab_file: str):
@@ -330,6 +330,8 @@ class LMDataset(object):
         shuffle_on_load = if True, then shuffle the sentences after loading.
         '''
         self._vocab = vocab
+        # removing empty files in directory to avoid index not found error
+        self._remove_empty_files(filepattern)
         self._all_shards = glob.glob(filepattern)
         print('Found %d shards at %s' % (len(self._all_shards), filepattern))
         self._shards_to_choose = []
@@ -340,6 +342,21 @@ class LMDataset(object):
         self._use_char_inputs = hasattr(vocab, 'encode_chars')
 
         self._ids = self._load_random_shard()
+
+    def _remove_empty_files(self, path):
+        """
+        This function helps in removing empty files in directory (when user has
+        large number of files and user do not know that empty files can throw error)
+        If this sanitisation is not done then it may result in Error "index out of range
+        error at run time" in *get_sentence* function of *LMDataset* class. This can
+        result in run time termination of training.
+        """
+        for root, dirs, files in os.walk(path):
+            for name in files:
+                filename = os.path.join(root, name)
+                if os.stat(filename).st_size == 0:
+                    print(" Removing file as it is having no data (size = 0) : ", filename)
+                    os.remove(filename)
 
     def _choose_random_shard(self):
         if len(self._shards_to_choose) == 0:
