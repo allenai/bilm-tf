@@ -10,7 +10,7 @@ def weight_layers(name, bilm_ops, l2_coef=None,
     For each output layer, this returns two ops.  The first computes
         a layer specific weighted average of the biLM layers, and
         the second the l2 regularizer loss term.
-    The regularization terms are also add to tf.GraphKeys.REGULARIZATION_LOSSES 
+    The regularization terms are also add to tf.GraphKeys.REGULARIZATION_LOSSES
 
     Input:
         name = a string prefix used for the trainable variable names
@@ -33,7 +33,7 @@ def weight_layers(name, bilm_ops, l2_coef=None,
         if l2_coef is not None:
             return l2_coef * tf.reduce_sum(tf.square(weights))
         else:
-            return 0.0
+            return tf.constant([0.0])
 
     # Get ops for computing LM embeddings and mask
     lm_embeddings = bilm_ops['lm_embeddings']
@@ -79,7 +79,7 @@ def weight_layers(name, bilm_ops, l2_coef=None,
             )
             # split LM layers
             layers = tf.split(lm_embeddings, n_lm_layers, axis=1)
-    
+
             # compute the weighted, normalized LM activations
             pieces = []
             for w, t in zip(normed_weights, layers):
@@ -88,8 +88,8 @@ def weight_layers(name, bilm_ops, l2_coef=None,
                 else:
                     pieces.append(w * tf.squeeze(t, squeeze_dims=1))
             sum_pieces = tf.add_n(pieces)
-    
-            # get the regularizer 
+
+            # get the regularizer
             reg = [
                 r for r in tf.get_collection(
                                 tf.GraphKeys.REGULARIZATION_LOSSES)
