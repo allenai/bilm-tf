@@ -274,3 +274,10 @@ Simple methods like average and max pooling of the word level ELMo representatio
 See "Evaluation of sentence embeddings in downstream and linguistic probing tasks", Perone et al, 2018 [arxiv link](https://arxiv.org/abs/1806.06259).
 
 
+#### I'm seeing a WARNING when serializing models, is it a problem?
+The below warning can be safely ignored:
+```
+2018-08-24 13:04:08,779 : WARNING : Error encountered when serializing lstm_output_embeddings.
+Type is unsupported, or the types of the items don't match field type in CollectionDef.
+'list' object has no attribute 'name'
+```
