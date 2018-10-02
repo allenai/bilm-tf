@@ -164,7 +164,7 @@ class UnicodeCharsVocabulary(Vocabulary):
         code[0] = self.bow_char
         for k, chr_id in enumerate(word_encoded, start=1):
             code[k] = chr_id
-        code[k + 1] = self.eow_char
+        code[len(word_encoded) + 1] = self.eow_char
 
         return code
 
