@@ -205,14 +205,17 @@ class Batcher(object):
         )
         self._max_token_length = max_token_length
 
-    def batch_sentences(self, sentences: List[List[str]]):
+    def batch_sentences(self, sentences: List[List[str]], max_length=None):
         '''
         Batch the sentences as character ids
         Each sentence is a list of tokens without <s> or </s>, e.g.
         [['The', 'first', 'sentence', '.'], ['Second', '.']]
         '''
         n_sentences = len(sentences)
-        max_length = max(len(sentence) for sentence in sentences) + 2
+        if max_length == None:
+            max_length = max(len(sentence) for sentence in sentences) + 2
+        else:
+            max_length += 2
 
         X_char_ids = np.zeros(
             (n_sentences, max_length, self._max_token_length),
@@ -240,14 +243,17 @@ class TokenBatcher(object):
         '''
         self._lm_vocab = Vocabulary(lm_vocab_file)
 
-    def batch_sentences(self, sentences: List[List[str]]):
+    def batch_sentences(self, sentences: List[List[str]], max_length=None):
         '''
         Batch the sentences as character ids
         Each sentence is a list of tokens without <s> or </s>, e.g.
         [['The', 'first', 'sentence', '.'], ['Second', '.']]
         '''
         n_sentences = len(sentences)
-        max_length = max(len(sentence) for sentence in sentences) + 2
+        if max_length == None:
+            max_length = max(len(sentence) for sentence in sentences) + 2
+        else:
+            max_length += 2
 
         X_ids = np.zeros((n_sentences, max_length), dtype=np.int64)
 
