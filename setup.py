@@ -42,7 +42,6 @@ setuptools.setup(
     keywords='bilm elmo nlp embedding',
     author='Matthew E. Peters, Mark Neumann, Mohit Iyyer, Matt Gardner, Christopher Clark, Kenton Lee, Luke Zettlemoyer',
     author_email='allennlp-contact@allenai.org',
-    maintainer='Philip May',
-    maintainer_email='eniak.info@gmail.com',
+    maintainer='Matthew Peters',
 )
 
