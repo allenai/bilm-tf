@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name='bilm',
-    version='0.1.post4',
+    version='0.1.post5',
     url='http://github.com/allenai/bilm-tf',
     packages=setuptools.find_packages(),
     tests_require=[],
