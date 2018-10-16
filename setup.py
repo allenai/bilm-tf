@@ -18,7 +18,6 @@ setuptools.setup(
     license='Apache License 2.0',
     python_requires='>=3.5',
     install_requires=[
-        'tensorflow-gpu>=1.2',
         'h5py',
     ],
     classifiers=[
