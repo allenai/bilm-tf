@@ -11,6 +11,7 @@ import tensorflow as tf
 import numpy as np
 
 from tensorflow.python.ops.init_ops import glorot_uniform_initializer
+from tqdm import tqdm
 
 from .data import Vocabulary, UnicodeCharsVocabulary, InvalidNumberOfCharacters
 
@@ -835,6 +836,7 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
 
         t1 = time.time()
         data_gen = data.iter_batches(batch_size * n_gpus, unroll_steps)
+        pbar = tqdm(total=n_batches_total)
         for batch_no, batch in enumerate(data_gen, start=1):
 
             # slice the input in the batch for the feed_dict
@@ -893,7 +895,9 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
 
             if batch_no == n_batches_total:
                 # done training!
+                pbar.close()
                 break
+            pbar.update(1)
 
 
 def clip_by_global_norm_summary(t_list, clip_norm, norm_name, variables):
