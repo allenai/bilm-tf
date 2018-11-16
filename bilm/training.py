@@ -18,6 +18,11 @@ from .data import Vocabulary, UnicodeCharsVocabulary, InvalidNumberOfCharacters
 DTYPE = 'float32'
 DTYPE_INT = 'int64'
 
+# skip this many batches before we start calculating perplexity
+# why this is useful - see here in the FAQ: 
+# https://github.com/allenai/bilm-tf#why-do-i-get-slightly-different-embeddings-if-i-run-the-same-text-through-the-pre-trained-model-twice
+SKIP_FIRST_N_BATCHES_FOR_PERPLEXITY_CALC = 256
+
 tf.logging.set_verbosity(tf.logging.INFO)
 
 
@@ -1030,13 +1035,19 @@ def test(options, ckpt_file, data, batch_size=256):
             )
 
             loss, init_state_values = ret
-            batch_losses.append(loss)
-            batch_perplexity = np.exp(loss)
-            total_loss += loss
-            avg_perplexity = np.exp(total_loss / batch_no)
 
-            print("batch=%s, batch_perplexity=%s, avg_perplexity=%s, time=%s" %
-                (batch_no, batch_perplexity, avg_perplexity, time.time() - t1))
+            batch_perplexity = np.exp(loss)
+
+            if batch_no > SKIP_FIRST_N_BATCHES_FOR_PERPLEXITY_CALC:
+                batch_losses.append(loss)
+                total_loss += loss
+                avg_perplexity = np.exp(total_loss / (batch_no - SKIP_FIRST_N_BATCHES_FOR_PERPLEXITY_CALC))
+
+                print("batch=%s, batch_perplexity=%s, avg_perplexity=%s, time=%s" %
+                    (batch_no, batch_perplexity, avg_perplexity, time.time() - t1))
+            else:
+                print("batch=%s, batch_perplexity=%s, skipped this batch for avg_perplexity calculation, time=%s" %
+                    (batch_no, batch_perplexity, time.time() - t1))
 
     avg_loss = np.mean(batch_losses)
     print("FINSIHED!  AVERAGE PERPLEXITY = %s" % np.exp(avg_loss))
