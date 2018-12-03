@@ -1,5 +1,6 @@
 
 import argparse
+import logging
 
 from bilm.training import test, load_options_latest_checkpoint, load_vocab
 from bilm.data import LMDataset, BidirectionalLMDataset
@@ -7,12 +8,19 @@ from bilm.data import LMDataset, BidirectionalLMDataset
 def main(args):
     options, ckpt_file = load_options_latest_checkpoint(args.save_dir)
 
+    logging.getLogger().setLevel(logging.INFO)
+
+    logging.info("ckpt1")
+
     # load the vocab
     if 'char_cnn' in options:
         max_word_length = options['char_cnn']['max_characters_per_token']
     else:
         max_word_length = None
     vocab = load_vocab(args.vocab_file, max_word_length)
+
+    logging.info("ckpt2")
+
 
     test_prefix = args.test_prefix
 
@@ -25,6 +33,8 @@ def main(args):
         data = BidirectionalLMDataset(test_prefix, vocab, **kwargs)
     else:
         data = LMDataset(test_prefix, vocab, **kwargs)
+
+    logging.info("ckpt3")
 
     test(options, ckpt_file, data, batch_size=args.batch_size)
 

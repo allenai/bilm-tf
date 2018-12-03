@@ -194,7 +194,8 @@ class Batcher(object):
     ''' 
     Batch sentences of tokenized text into character id matrices.
     '''
-    def __init__(self, lm_vocab_file: str, max_token_length: int):
+    def __init__(self, lm_vocab_file: str, max_token_length: int,
+                 *, do_masking = True):
         '''
         lm_vocab_file = the language model vocabulary file (one line per
             token)
@@ -204,6 +205,7 @@ class Batcher(object):
             lm_vocab_file, max_token_length
         )
         self._max_token_length = max_token_length
+        self._do_masking = do_masking
 
     def batch_sentences(self, sentences: List[List[str]]):
         '''
@@ -224,21 +226,24 @@ class Batcher(object):
             char_ids_without_mask = self._lm_vocab.encode_chars(
                 sent, split=False)
             # add one so that 0 is the mask value
-            X_char_ids[k, :length, :] = char_ids_without_mask + 1
+            if self._do_masking:
+                X_char_ids[k, :length, :] = char_ids_without_mask + 1
+            else:
+                X_char_ids[k, :length, :] = char_ids_without_mask
 
         return X_char_ids
-
 
 class TokenBatcher(object):
     ''' 
     Batch sentences of tokenized text into token id matrices.
     '''
-    def __init__(self, lm_vocab_file: str):
+    def __init__(self, lm_vocab_file: str, *, do_masking=True):
         '''
         lm_vocab_file = the language model vocabulary file (one line per
             token)
         '''
         self._lm_vocab = Vocabulary(lm_vocab_file)
+        self._do_masking = do_masking
 
     def batch_sentences(self, sentences: List[List[str]]):
         '''
@@ -255,7 +260,10 @@ class TokenBatcher(object):
             length = len(sent) + 2
             ids_without_mask = self._lm_vocab.encode(sent, split=False)
             # add one so that 0 is the mask value
-            X_ids[k, :length] = ids_without_mask + 1
+            if self._do_masking:
+                X_ids[k, :length] = ids_without_mask + 1
+            else:
+                X_ids[k, :length] = ids_without_mask
 
         return X_ids
 
@@ -443,6 +451,7 @@ class BidirectionalLMDataset(object):
         self._data_reverse = LMDataset(
             filepattern, vocab, reverse=True, test=test,
             shuffle_on_load=shuffle_on_load)
+        self.vocab = vocab
 
     def iter_batches(self, batch_size, num_steps):
         max_word_length = self._data_forward.max_word_length
@@ -458,6 +467,91 @@ class BidirectionalLMDataset(object):
                 X[k + '_reverse'] = v
 
             yield X
+
+
+class SentencePredictionDataset(object):
+    """
+    Holds a list of sentences whose LM probabilities we want to get.
+
+    Each sentence is pre-tokenized and whitespace-joined.
+    """
+    def __init__(self, sentences, vocab):
+        '''
+        sentences = a list of lists of tokens
+        vocab = an instance of Vocabulary or UnicodeCharsVocabulary
+        '''
+        self._vocab = vocab
+        self._use_char_inputs = hasattr(vocab, 'encode_chars')
+        self._sentences = sentences
+        for sentence in sentences:
+            if len(sentence) > 20:
+                raise
+
+
+    def _load_shard(self, shard_name):
+        """Read one file and convert to ids.
+
+        Args:
+            shard_name: file path.
+
+        Returns:
+            list of (id, char_id) tuples.
+        """
+        print('Loading data from: %s' % shard_name)
+        with open(shard_name) as f:
+            sentences_raw = f.readlines()
+
+        if self._reverse:
+            sentences = []
+            for sentence in sentences_raw:
+                splitted = sentence.split()
+                splitted.reverse()
+                sentences.append(' '.join(splitted))
+        else:
+            sentences = sentences_raw
+
+        if self._shuffle_on_load:
+            random.shuffle(sentences)
+
+        ids = [self.vocab.encode(sentence, self._reverse)
+               for sentence in sentences]
+        if self._use_char_inputs:
+            chars_ids = [self.vocab.encode_chars(sentence, self._reverse)
+                     for sentence in sentences]
+        else:
+            chars_ids = [None] * len(ids)
+
+        print('Loaded %d sentences.' % len(ids))
+        print('Finished loading')
+        return list(zip(ids, chars_ids))
+
+    def get_sentence(self):
+        while True:
+            if self._i == self._nids:
+                self._ids = self._load_random_shard()
+            ret = self._ids[self._i]
+            self._i += 1
+            yield ret
+
+    @property
+    def max_word_length(self):
+        if self._use_char_inputs:
+            return self._vocab.max_word_length
+        else:
+            return None
+
+    def iter_batches(self, batch_size, num_steps):
+        for X in _get_batch(self.get_sentence(), batch_size, num_steps,
+                           self.max_word_length):
+
+            # token_ids = (batch_size, num_steps)
+            # char_inputs = (batch_size, num_steps, 50) of character ids
+            # targets = word ID of next word (batch_size, num_steps)
+            yield X
+
+    @property
+    def vocab(self):
+        return self._vocab
 
 
 class InvalidNumberOfCharacters(Exception):
