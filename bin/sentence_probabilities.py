@@ -36,8 +36,16 @@ def main(args):
     #     data = LMDataset(test_prefix, vocab, **kwargs)
 
 #    sentence_probabilities(options, ckpt_file, data, batch_size=args.batch_size)
+    if args.burn_in_text:
+        with open(args.burn_in_text) as burn_in_text_inp:
+            burn_in_text = list(burn_in_text_inp)
+        print("Got burn in text")
+    else:
+        burn_in_text = None
+
     sentence_probabilities(options, ckpt_file, sentence_file,
-                           args.vocab_file, batch_size=args.batch_size)
+                           args.vocab_file, batch_size=args.batch_size,
+                           burn_in_text=burn_in_text)
 
 
 if __name__ == '__main__':
@@ -45,6 +53,8 @@ if __name__ == '__main__':
     parser.add_argument('--save_dir', help='Location of checkpoint files')
     parser.add_argument('--vocab_file', help='Vocabulary file')
     parser.add_argument('--test_prefix', help='Prefix for test files')
+    parser.add_argument('--burn_in_text', help="File of burn in text to determine initial LSTM "
+                                               "states", default=None)
     parser.add_argument('--batch_size',
         type=int, default=256,
         help='Batch size')

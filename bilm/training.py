@@ -14,6 +14,7 @@ import tensorflow as tf
 import numpy as np
 
 from tensorflow.python.ops.init_ops import glorot_uniform_initializer
+from typing import Sequence
 
 from .data import Vocabulary, UnicodeCharsVocabulary, InvalidNumberOfCharacters, TokenBatcher, \
     Batcher
@@ -362,8 +363,6 @@ class LanguageModel(object):
 
         use_skip_connections = self.options['lstm'].get(
             'use_skip_connections')
-        if use_skip_connections:
-            print("USING SKIP CONNECTIONS")
 
         lstm_outputs = []
         for lstm_num, lstm_input in enumerate(lstm_inputs):
@@ -1054,14 +1053,20 @@ def test(options, ckpt_file, data, batch_size=256):
     return np.exp(avg_loss)
 
 
-def sentence_probabilities(options, ckpt_file, sentence_file, vocab_file, batch_size=256):
+def sentence_probabilities(options, ckpt_file, sentence_file, vocab_file, batch_size=256,
+                           burn_in_text=None):
     """
-    Gets the probabilities of each sentence in a file of sentences.
+    Gets the probabilities of each sentence in a file of sentence_lines.
 
     This borrows a lot from test and should probably be refactored with it somehow.
 
-    This currently doesn't reset the LSTM state between sentences, so giving the sentences in
+    This currently doesn't reset the LSTM state between sentence_lines, so giving the sentence_lines in
     different orders will produce different probabilities.
+
+    If a list of sentences (tokenized, space-separated) is given as "burn in text", then
+    the LSTM state will be initialized by running that text through it. The resulting state will
+    be saved and used to initialize the LSTM state for all future batches. If the burn in text is
+    not specified, then the "zero state" is used to initialize the LSTM for all inference batches.
     """
     bidirectional = options.get('bidirectional', False)
     char_inputs = 'char_cnn' in options
@@ -1073,8 +1078,20 @@ def sentence_probabilities(options, ckpt_file, sentence_file, vocab_file, batch_
     logging.info(f"Batch size: {batch_size}")
 
     with open(sentence_file) as sentences_in:
-        sentences = list(chunked(tuple(line.strip().split(' ') for line in sentences_in), \
-                                 batch_size))
+        sentence_lines = list(chunked(sentences_in, batch_size))
+
+    if burn_in_text:
+        burn_in_batches = []
+        # the LSTM language model can be unreliable at first, so if requested we run the given
+        # text through it and use the resulting LSTM state as the initial state for inference
+        # on our real batches
+        if not isinstance(burn_in_text, Sequence):
+            raise RuntimeError("Burn in text must be list of sentences")
+        first_real_batch_index = len(burn_in_text)
+        burn_in_batches = [[sentence] * batch_size for sentence in burn_in_text]
+        sentence_lines = burn_in_batches + sentence_lines
+    else:
+        print("No burn in text provided")
 
     # we need the token-batcher regardless for determining target tokens
     token_batcher = TokenBatcher(vocab_file, do_masking=False)
@@ -1125,13 +1142,32 @@ def sentence_probabilities(options, ckpt_file, sentence_file, vocab_file, batch_
                                  dtype=np.int32)
                 })
 
-        init_state_values = sess.run(
-            init_state_tensors,
-            feed_dict=feed_dict)
-
         start_time = time.time()
         num_sentences_processed = 0
-        for batch_sentences in sentences:
+
+        init_state_values = sess.run(init_state_tensors, feed_dict=feed_dict)
+        burn_in_initial_state = None
+
+        for (batch_idx, batch_sentences_lines) in enumerate(sentence_lines):
+            if burn_in_text:
+                if batch_idx < first_real_batch_index:
+                    # we leave the initial state for this batch as the final state of the previous
+                    # batch since we are still in burn-in mode
+                    pass
+                elif batch_idx == first_real_batch_index:
+                    burn_in_initial_state = init_state_values
+                else:
+                    # use the result of the burn in process as the initial state for all future
+                    # batches
+                    init_state_values = burn_in_initial_state
+            else:
+                # if we aren't using burn in, we re-initialize every batch to the initial LSTM
+                # state to prevent bleed over between batches
+                init_state_values = sess.run(init_state_tensors, feed_dict=feed_dict)
+
+            batch_sentence_fields = [line.split('\t') for line in batch_sentences_lines]
+
+            batch_sentences = [fields[0].split(' ') for fields in batch_sentence_fields]
             num_sentences_processed += len(batch_sentences)
             batch_size_shortfall = batch_size - len(batch_sentences)
             if batch_size_shortfall:
@@ -1149,7 +1185,7 @@ def sentence_probabilities(options, ckpt_file, sentence_file, vocab_file, batch_
             reversed_token_batch = np.copy(token_batch)
             np.flip(reversed_token_batch, axis=1)
 
-            # then we need to iterate over each word in these sentences
+            # then we need to iterate over each word in these sentence_lines
             batch_size = batch.shape[0]
             max_sentence_length = batch.shape[1]
 
@@ -1190,8 +1226,12 @@ def sentence_probabilities(options, ckpt_file, sentence_file, vocab_file, batch_
                 masked_token_losses = np.multiply(token_losses, mask)
                 totals_by_sentence += masked_token_losses
 
-            for (sentence, score) in zip(batch_sentences, totals_by_sentence):
-                print(f"{score}\t{sentence}\n")
+            print("Burn in text")
+            print(burn_in_text)
+            if not burn_in_text or batch_idx >= first_real_batch_index:
+                for (input_fields, score) in zip(batch_sentence_fields, totals_by_sentence):
+                    input_fields.insert(0, str(score))
+                    print("\t".join(input_fields))
         print(f"Processed {num_sentences_processed} in {time.time() - start_time} seconds")
 
 
