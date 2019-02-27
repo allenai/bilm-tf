@@ -5,7 +5,7 @@ import h5py
 import json
 import re
 
-from .data import UnicodeCharsVocabulary, Batcher
+from .data import UnicodeCharsVocabulary, Batcher, InvalidNumberOfCharacters
 
 DTYPE = 'float32'
 DTYPE_INT = 'int64'
