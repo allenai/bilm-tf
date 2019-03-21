@@ -33,6 +33,12 @@ Ensure the tests pass in your environment by running:
 python -m unittest discover tests/
 ```
 
+#### Note
+If you are using USC-HPC, you have to setup cuDNN and CUDA in order to use tensorflow-gpu:
+```
+source /usr/usc/cuDNN/7.5-v5.0/setup.sh
+source /usr/usc/cuda/8.0/setup.sh
+```
 ## Installing with Docker
 
 To run the image, you must use nvidia-docker, because this repository
