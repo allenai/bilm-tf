@@ -18,7 +18,7 @@ class TestLanguageModel(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp_dir)
         os.remove(self.tmp_file)
-        tf.reset_default_graph()
+        tf.compat.v1.reset_default_graph()
 
     def setUp(self):
         self.tmp_dir = tempfile.mkdtemp()
@@ -82,7 +82,7 @@ class TestLanguageModel(unittest.TestCase):
         train(options, data, 1, self.tmp_dir, self.tmp_dir)
 
         # now test
-        tf.reset_default_graph()
+        tf.compat.v1.reset_default_graph()
         options, ckpt_file = load_options_latest_checkpoint(self.tmp_dir)
         data_test, vocab_test = self._get_data(False, False, True)
         perplexity = test(options, ckpt_file, data_test, batch_size=1)
@@ -93,7 +93,7 @@ class TestLanguageModel(unittest.TestCase):
         train(options, data, 1, self.tmp_dir, self.tmp_dir)
 
         # now test
-        tf.reset_default_graph()
+        tf.compat.v1.reset_default_graph()
         options, ckpt_file = load_options_latest_checkpoint(self.tmp_dir)
         data_test, vocab_test = self._get_data(True, True, True)
         perplexity = test(options, ckpt_file, data_test, batch_size=1)
@@ -103,7 +103,7 @@ class TestLanguageModel(unittest.TestCase):
         vocab, data, options = self._get_vocab_data_options(True, True)
         options['n_epochs'] = 1
         train(options, data, 2, self.tmp_dir, self.tmp_dir)
-        self.assertEqual(len(tf.global_variables()), 64)
+        self.assertEqual(len(tf.compat.v1.global_variables()), 64)
 
     def test_train_shared_softmax_embedding(self):
         bidirectional = True
@@ -114,7 +114,7 @@ class TestLanguageModel(unittest.TestCase):
         train(options, data, 1, self.tmp_dir, self.tmp_dir)
 
         # now test
-        tf.reset_default_graph()
+        tf.compat.v1.reset_default_graph()
         options, ckpt_file = load_options_latest_checkpoint(self.tmp_dir)
         data_test, vocab_test = self._get_data(
             bidirectional, use_chars, test=True)
@@ -139,7 +139,7 @@ class TestLanguageModel(unittest.TestCase):
         train(options, data, 1, self.tmp_dir, self.tmp_dir)
 
         # now test
-        tf.reset_default_graph()
+        tf.compat.v1.reset_default_graph()
         options, ckpt_file = load_options_latest_checkpoint(self.tmp_dir)
         data_test, vocab_test = self._get_data(
             bidirectional, use_chars, test=True)

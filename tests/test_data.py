@@ -10,7 +10,6 @@ from bilm.data import UnicodeCharsVocabulary, Vocabulary, \
 DATA_FIXTURES = 'tests/fixtures/data/'
 TRAIN_FIXTURES = 'tests/fixtures/train/'
 
-
 class TestVocabulary(unittest.TestCase):
     def setUp(self):
         words = ['<S>', '</S>', '<UNK>', 'the', '.']

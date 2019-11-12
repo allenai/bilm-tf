@@ -31,7 +31,7 @@ def weight_layers(name, bilm_ops, l2_coef=None,
     '''
     def _l2_regularizer(weights):
         if l2_coef is not None:
-            return l2_coef * tf.reduce_sum(tf.square(weights))
+            return l2_coef * tf.reduce_sum(input_tensor=tf.square(weights))
         else:
             return 0.0
 
@@ -50,9 +50,9 @@ def weight_layers(name, bilm_ops, l2_coef=None,
         def _do_ln(x):
             # do layer normalization excluding the mask
             x_masked = x * broadcast_mask
-            N = tf.reduce_sum(mask_float) * lm_dim
-            mean = tf.reduce_sum(x_masked) / N
-            variance = tf.reduce_sum(((x_masked - mean) * broadcast_mask)**2
+            N = tf.reduce_sum(input_tensor=mask_float) * lm_dim
+            mean = tf.reduce_sum(input_tensor=x_masked) / N
+            variance = tf.reduce_sum(input_tensor=((x_masked - mean) * broadcast_mask)**2
                                     ) / N
             return tf.nn.batch_normalization(
                 x, mean, variance, None, None, 1E-12
@@ -61,14 +61,14 @@ def weight_layers(name, bilm_ops, l2_coef=None,
         if use_top_only:
             layers = tf.split(lm_embeddings, n_lm_layers, axis=1)
             # just the top layer
-            sum_pieces = tf.squeeze(layers[-1], squeeze_dims=1)
+            sum_pieces = tf.squeeze(layers[-1], axis=1)
             # no regularization
             reg = 0.0
         else:
-            W = tf.get_variable(
+            W = tf.compat.v1.get_variable(
                 '{}_ELMo_W'.format(name),
                 shape=(n_lm_layers, ),
-                initializer=tf.zeros_initializer,
+                initializer=tf.compat.v1.zeros_initializer,
                 regularizer=_l2_regularizer,
                 trainable=True,
             )
@@ -84,25 +84,25 @@ def weight_layers(name, bilm_ops, l2_coef=None,
             pieces = []
             for w, t in zip(normed_weights, layers):
                 if do_layer_norm:
-                    pieces.append(w * _do_ln(tf.squeeze(t, squeeze_dims=1)))
+                    pieces.append(w * _do_ln(tf.squeeze(t, axis=1)))
                 else:
-                    pieces.append(w * tf.squeeze(t, squeeze_dims=1))
+                    pieces.append(w * tf.squeeze(t, axis=1))
             sum_pieces = tf.add_n(pieces)
     
             # get the regularizer 
             reg = [
-                r for r in tf.get_collection(
-                                tf.GraphKeys.REGULARIZATION_LOSSES)
+                r for r in tf.compat.v1.get_collection(
+                                tf.compat.v1.GraphKeys.REGULARIZATION_LOSSES)
                 if r.name.find('{}_ELMo_W/'.format(name)) >= 0
             ]
             if len(reg) != 1:
                 raise ValueError
 
         # scale the weighted sum by gamma
-        gamma = tf.get_variable(
+        gamma = tf.compat.v1.get_variable(
             '{}_ELMo_gamma'.format(name),
             shape=(1, ),
-            initializer=tf.ones_initializer,
+            initializer=tf.compat.v1.ones_initializer,
             regularizer=None,
             trainable=True,
         )

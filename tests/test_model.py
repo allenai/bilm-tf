@@ -42,10 +42,10 @@ def _load_sentences_embeddings():
 
 class TestBidirectionalLanguageModel(unittest.TestCase):
     def setUp(self):
-        self.sess = tf.Session()
+        self.sess = tf.compat.v1.Session()
 
     def tearDown(self):
-        tf.reset_default_graph()
+        tf.compat.v1.reset_default_graph()
         self.sess.close()
 
     def test_bilm(self):
@@ -58,7 +58,7 @@ class TestBidirectionalLanguageModel(unittest.TestCase):
         # load the model
         options_file = os.path.join(FIXTURES, 'options.json')
         weight_file = os.path.join(FIXTURES, 'lm_weights.hdf5')
-        character_ids = tf.placeholder('int32', (None, None, 50))
+        character_ids = tf.compat.v1.placeholder('int32', (None, None, 50))
         model = BidirectionalLanguageModel(options_file, weight_file,
             max_batch_size=4)
 
@@ -66,10 +66,10 @@ class TestBidirectionalLanguageModel(unittest.TestCase):
         ops = model(character_ids)
 
         # initialize
-        self.sess.run(tf.global_variables_initializer())
+        self.sess.run(tf.compat.v1.global_variables_initializer())
 
         # We shouldn't have any trainable variables
-        self.assertEqual(len(tf.trainable_variables()), 0)
+        self.assertEqual(len(tf.compat.v1.trainable_variables()), 0)
 
         # will run 10 batches of 3 sentences
         for i in range(10):
@@ -132,11 +132,11 @@ class TestBidirectionalLanguageModel(unittest.TestCase):
 
 class TestBidirectionalLanguageModelTokenInput(unittest.TestCase):
     def setUp(self):
-        self.sess = tf.Session()
+        self.sess = tf.compat.v1.Session()
         self.tmp_dir = tempfile.mkdtemp()
 
     def tearDown(self):
-        tf.reset_default_graph()
+        tf.compat.v1.reset_default_graph()
         self.sess.close()
         shutil.rmtree(self.tmp_dir)
 
@@ -165,15 +165,15 @@ class TestBidirectionalLanguageModelTokenInput(unittest.TestCase):
         dump_token_embeddings(
             vocab_file, options_file, weight_file, embedding_weight_file
         )
-        tf.reset_default_graph()
+        tf.compat.v1.reset_default_graph()
         self.sess.close()
-        self.sess = tf.Session()
+        self.sess = tf.compat.v1.Session()
 
         # create the Batcher
         batcher = TokenBatcher(vocab_file)
 
         # load the model
-        token_ids = tf.placeholder('int32', (None, None))
+        token_ids = tf.compat.v1.placeholder('int32', (None, None))
         model = BidirectionalLanguageModel(
             options_file, weight_file,
             use_character_inputs=False,
@@ -185,10 +185,10 @@ class TestBidirectionalLanguageModelTokenInput(unittest.TestCase):
         ops = model(token_ids)
 
         # initialize
-        self.sess.run(tf.global_variables_initializer())
+        self.sess.run(tf.compat.v1.global_variables_initializer())
 
         # We shouldn't have any trainable variables
-        self.assertEqual(len(tf.trainable_variables()), 0)
+        self.assertEqual(len(tf.compat.v1.trainable_variables()), 0)
 
         # will run 10 batches of 3 sentences
         for i in range(10):
