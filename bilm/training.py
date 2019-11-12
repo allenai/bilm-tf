@@ -18,12 +18,12 @@ from .data import Vocabulary, UnicodeCharsVocabulary, InvalidNumberOfCharacters
 DTYPE = 'float32'
 DTYPE_INT = 'int64'
 
-tf.logging.set_verbosity(tf.logging.INFO)
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
 
 
 def print_variable_summary():
     import pprint
-    variables = sorted([[v.name, v.get_shape()] for v in tf.global_variables()])
+    variables = sorted([[v.name, v.get_shape()] for v in tf.compat.v1.global_variables()])
     pprint.pprint(variables)
 
 
@@ -80,27 +80,27 @@ class LanguageModel(object):
         projection_dim = self.options['lstm']['projection_dim']
 
         # the input token_ids and word embeddings
-        self.token_ids = tf.placeholder(DTYPE_INT,
+        self.token_ids = tf.compat.v1.placeholder(DTYPE_INT,
                                shape=(batch_size, unroll_steps),
                                name='token_ids')
         # the word embeddings
         with tf.device("/cpu:0"):
-            self.embedding_weights = tf.get_variable(
+            self.embedding_weights = tf.compat.v1.get_variable(
                 "embedding", [n_tokens_vocab, projection_dim],
                 dtype=DTYPE,
             )
-            self.embedding = tf.nn.embedding_lookup(self.embedding_weights,
-                                                self.token_ids)
+            self.embedding = tf.nn.embedding_lookup(params=self.embedding_weights,
+                                                ids=self.token_ids)
 
         # if a bidirectional LM then make placeholders for reverse
         # model and embeddings
         if self.bidirectional:
-            self.token_ids_reverse = tf.placeholder(DTYPE_INT,
+            self.token_ids_reverse = tf.compat.v1.placeholder(DTYPE_INT,
                                shape=(batch_size, unroll_steps),
                                name='token_ids_reverse')
             with tf.device("/cpu:0"):
                 self.embedding_reverse = tf.nn.embedding_lookup(
-                    self.embedding_weights, self.token_ids_reverse)
+                    params=self.embedding_weights, ids=self.token_ids_reverse)
 
     def _build_word_char_embeddings(self):
         '''
@@ -150,31 +150,31 @@ class LanguageModel(object):
             activation = tf.nn.relu
 
         # the input character ids 
-        self.tokens_characters = tf.placeholder(DTYPE_INT,
+        self.tokens_characters = tf.compat.v1.placeholder(DTYPE_INT,
                                    shape=(batch_size, unroll_steps, max_chars),
                                    name='tokens_characters')
         # the character embeddings
         with tf.device("/cpu:0"):
-            self.embedding_weights = tf.get_variable(
+            self.embedding_weights = tf.compat.v1.get_variable(
                     "char_embed", [n_chars, char_embed_dim],
                     dtype=DTYPE,
-                    initializer=tf.random_uniform_initializer(-1.0, 1.0)
+                    initializer=tf.compat.v1.random_uniform_initializer(-1.0, 1.0)
             )
             # shape (batch_size, unroll_steps, max_chars, embed_dim)
-            self.char_embedding = tf.nn.embedding_lookup(self.embedding_weights,
-                                                    self.tokens_characters)
+            self.char_embedding = tf.nn.embedding_lookup(params=self.embedding_weights,
+                                                    ids=self.tokens_characters)
 
             if self.bidirectional:
-                self.tokens_characters_reverse = tf.placeholder(DTYPE_INT,
+                self.tokens_characters_reverse = tf.compat.v1.placeholder(DTYPE_INT,
                                    shape=(batch_size, unroll_steps, max_chars),
                                    name='tokens_characters_reverse')
                 self.char_embedding_reverse = tf.nn.embedding_lookup(
-                    self.embedding_weights, self.tokens_characters_reverse)
+                    params=self.embedding_weights, ids=self.tokens_characters_reverse)
 
 
         # the convolutions
         def make_convolutions(inp, reuse):
-            with tf.variable_scope('CNN', reuse=reuse) as scope:
+            with tf.compat.v1.variable_scope('CNN', reuse=reuse) as scope:
                 convolutions = []
                 for i, (width, num) in enumerate(filters):
                     if cnn_options['activation'] == 'relu':
@@ -186,42 +186,42 @@ class LanguageModel(object):
                         #)
 
                         # Kim et al 2015, +/- 0.05
-                        w_init = tf.random_uniform_initializer(
+                        w_init = tf.compat.v1.random_uniform_initializer(
                             minval=-0.05, maxval=0.05)
                     elif cnn_options['activation'] == 'tanh':
                         # glorot init
-                        w_init = tf.random_normal_initializer(
+                        w_init = tf.compat.v1.random_normal_initializer(
                             mean=0.0,
                             stddev=np.sqrt(1.0 / (width * char_embed_dim))
                         )
-                    w = tf.get_variable(
+                    w = tf.compat.v1.get_variable(
                         "W_cnn_%s" % i,
                         [1, width, char_embed_dim, num],
                         initializer=w_init,
                         dtype=DTYPE)
-                    b = tf.get_variable(
+                    b = tf.compat.v1.get_variable(
                         "b_cnn_%s" % i, [num], dtype=DTYPE,
-                        initializer=tf.constant_initializer(0.0))
+                        initializer=tf.compat.v1.constant_initializer(0.0))
 
                     conv = tf.nn.conv2d(
-                            inp, w,
+                            input=inp, filters=w,
                             strides=[1, 1, 1, 1],
                             padding="VALID") + b
                     # now max pool
-                    conv = tf.nn.max_pool(
-                            conv, [1, 1, max_chars-width+1, 1],
-                            [1, 1, 1, 1], 'VALID')
+                    conv = tf.nn.max_pool2d(
+                            input=conv, ksize=[1, 1, max_chars-width+1, 1],
+                            strides=[1, 1, 1, 1], padding='VALID')
 
                     # activation
                     conv = activation(conv)
-                    conv = tf.squeeze(conv, squeeze_dims=[2])
+                    conv = tf.squeeze(conv, axis=[2])
 
                     convolutions.append(conv)
 
             return tf.concat(convolutions, 2)
 
         # for first model, this is False, for others it's True
-        reuse = tf.get_variable_scope().reuse
+        reuse = tf.compat.v1.get_variable_scope().reuse
         embedding = make_convolutions(self.char_embedding, reuse)
 
         self.token_embedding_layers = [embedding]
@@ -246,15 +246,15 @@ class LanguageModel(object):
         # set up weights for projection
         if use_proj:
             assert n_filters > projection_dim
-            with tf.variable_scope('CNN_proj') as scope:
-                    W_proj_cnn = tf.get_variable(
+            with tf.compat.v1.variable_scope('CNN_proj') as scope:
+                    W_proj_cnn = tf.compat.v1.get_variable(
                         "W_proj", [n_filters, projection_dim],
-                        initializer=tf.random_normal_initializer(
+                        initializer=tf.compat.v1.random_normal_initializer(
                             mean=0.0, stddev=np.sqrt(1.0 / n_filters)),
                         dtype=DTYPE)
-                    b_proj_cnn = tf.get_variable(
+                    b_proj_cnn = tf.compat.v1.get_variable(
                         "b_proj", [projection_dim],
-                        initializer=tf.constant_initializer(0.0),
+                        initializer=tf.compat.v1.constant_initializer(0.0),
                         dtype=DTYPE)
 
         # apply highways layers
@@ -267,25 +267,25 @@ class LanguageModel(object):
             highway_dim = n_filters
 
             for i in range(n_highway):
-                with tf.variable_scope('CNN_high_%s' % i) as scope:
-                    W_carry = tf.get_variable(
+                with tf.compat.v1.variable_scope('CNN_high_%s' % i) as scope:
+                    W_carry = tf.compat.v1.get_variable(
                         'W_carry', [highway_dim, highway_dim],
                         # glorit init
-                        initializer=tf.random_normal_initializer(
+                        initializer=tf.compat.v1.random_normal_initializer(
                             mean=0.0, stddev=np.sqrt(1.0 / highway_dim)),
                         dtype=DTYPE)
-                    b_carry = tf.get_variable(
+                    b_carry = tf.compat.v1.get_variable(
                         'b_carry', [highway_dim],
-                        initializer=tf.constant_initializer(-2.0),
+                        initializer=tf.compat.v1.constant_initializer(-2.0),
                         dtype=DTYPE)
-                    W_transform = tf.get_variable(
+                    W_transform = tf.compat.v1.get_variable(
                         'W_transform', [highway_dim, highway_dim],
-                        initializer=tf.random_normal_initializer(
+                        initializer=tf.compat.v1.random_normal_initializer(
                             mean=0.0, stddev=np.sqrt(1.0 / highway_dim)),
                         dtype=DTYPE)
-                    b_transform = tf.get_variable(
+                    b_transform = tf.compat.v1.get_variable(
                         'b_transform', [highway_dim],
-                        initializer=tf.constant_initializer(0.0),
+                        initializer=tf.compat.v1.constant_initializer(0.0),
                         dtype=DTYPE)
 
                 embedding = high(embedding, W_carry, b_carry,
@@ -367,11 +367,11 @@ class LanguageModel(object):
             for i in range(n_lstm_layers):
                 if projection_dim < lstm_dim:
                     # are projecting down output
-                    lstm_cell = tf.nn.rnn_cell.LSTMCell(
+                    lstm_cell = tf.compat.v1.nn.rnn_cell.LSTMCell(
                         lstm_dim, num_proj=projection_dim,
                         cell_clip=cell_clip, proj_clip=proj_clip)
                 else:
-                    lstm_cell = tf.nn.rnn_cell.LSTMCell(
+                    lstm_cell = tf.compat.v1.nn.rnn_cell.LSTMCell(
                         lstm_dim,
                         cell_clip=cell_clip, proj_clip=proj_clip)
 
@@ -383,17 +383,17 @@ class LanguageModel(object):
                         pass
                     else:
                         # add a skip connection
-                        lstm_cell = tf.nn.rnn_cell.ResidualWrapper(lstm_cell)
+                        lstm_cell = tf.compat.v1.nn.rnn_cell.ResidualWrapper(lstm_cell)
 
                 # add dropout
                 if self.is_training:
-                    lstm_cell = tf.nn.rnn_cell.DropoutWrapper(lstm_cell,
+                    lstm_cell = tf.compat.v1.nn.rnn_cell.DropoutWrapper(lstm_cell,
                         input_keep_prob=keep_prob)
 
                 lstm_cells.append(lstm_cell)
 
             if n_lstm_layers > 1:
-                lstm_cell = tf.nn.rnn_cell.MultiRNNCell(lstm_cells)
+                lstm_cell = tf.compat.v1.nn.rnn_cell.MultiRNNCell(lstm_cells)
             else:
                 lstm_cell = lstm_cells[0]
 
@@ -403,13 +403,13 @@ class LanguageModel(object):
                 # NOTE: this variable scope is for backward compatibility
                 # with existing models...
                 if self.bidirectional:
-                    with tf.variable_scope('RNN_%s' % lstm_num):
-                        _lstm_output_unpacked, final_state = tf.nn.static_rnn(
+                    with tf.compat.v1.variable_scope('RNN_%s' % lstm_num):
+                        _lstm_output_unpacked, final_state = tf.compat.v1.nn.static_rnn(
                             lstm_cell,
                             tf.unstack(lstm_input, axis=1),
                             initial_state=self.init_lstm_state[-1])
                 else:
-                    _lstm_output_unpacked, final_state = tf.nn.static_rnn(
+                    _lstm_output_unpacked, final_state = tf.compat.v1.nn.static_rnn(
                         lstm_cell,
                         tf.unstack(lstm_input, axis=1),
                         initial_state=self.init_lstm_state[-1])
@@ -421,8 +421,8 @@ class LanguageModel(object):
             if self.is_training:
                 # add dropout to output
                 lstm_output_flat = tf.nn.dropout(lstm_output_flat,
-                    keep_prob)
-            tf.add_to_collection('lstm_output_embeddings',
+                    1 - (keep_prob))
+            tf.compat.v1.add_to_collection('lstm_output_embeddings',
                 _lstm_output_unpacked)
 
             lstm_outputs.append(lstm_output_flat)
@@ -445,7 +445,7 @@ class LanguageModel(object):
         # DEFINE next_token_id and *_reverse placeholders for the gold input
         def _get_next_token_placeholders(suffix):
             name = 'next_token_id' + suffix
-            id_placeholder = tf.placeholder(DTYPE_INT,
+            id_placeholder = tf.compat.v1.placeholder(DTYPE_INT,
                                    shape=(batch_size, unroll_steps),
                                    name=name)
             return id_placeholder
@@ -466,20 +466,20 @@ class LanguageModel(object):
             # softmax_W is just the embedding layer
             self.softmax_W = self.embedding_weights
 
-        with tf.variable_scope('softmax'), tf.device('/cpu:0'):
+        with tf.compat.v1.variable_scope('softmax'), tf.device('/cpu:0'):
             # Glorit init (std=(1.0 / sqrt(fan_in))
-            softmax_init = tf.random_normal_initializer(0.0,
+            softmax_init = tf.compat.v1.random_normal_initializer(0.0,
                 1.0 / np.sqrt(softmax_dim))
             if not self.share_embedding_softmax:
-                self.softmax_W = tf.get_variable(
+                self.softmax_W = tf.compat.v1.get_variable(
                     'W', [n_tokens_vocab, softmax_dim],
                     dtype=DTYPE,
                     initializer=softmax_init
                 )
-            self.softmax_b = tf.get_variable(
+            self.softmax_b = tf.compat.v1.get_variable(
                 'b', [n_tokens_vocab],
                 dtype=DTYPE,
-                initializer=tf.constant_initializer(0.0))
+                initializer=tf.compat.v1.constant_initializer(0.0))
 
         # now calculate losses
         # loss for each direction of the LSTM
@@ -509,17 +509,17 @@ class LanguageModel(object):
                     # get the full softmax loss
                     output_scores = tf.matmul(
                         lstm_output_flat,
-                        tf.transpose(self.softmax_W)
+                        tf.transpose(a=self.softmax_W)
                     ) + self.softmax_b
                     # NOTE: tf.nn.sparse_softmax_cross_entropy_with_logits
                     #   expects unnormalized output since it performs the
                     #   softmax internally
                     losses = tf.nn.sparse_softmax_cross_entropy_with_logits(
                         logits=output_scores,
-                        labels=tf.squeeze(next_token_id_flat, squeeze_dims=[1])
+                        labels=tf.squeeze(next_token_id_flat, axis=[1])
                     )
 
-            self.individual_losses.append(tf.reduce_mean(losses))
+            self.individual_losses.append(tf.reduce_mean(input_tensor=losses))
 
         # now make the total loss -- it's the mean of the individual losses
         if self.bidirectional:
@@ -571,7 +571,7 @@ def average_gradients(tower_grads, batch_size, options):
 
             # Average over the 'tower' dimension.
             grad = tf.concat(grads, 0)
-            grad = tf.reduce_mean(grad, 0)
+            grad = tf.reduce_mean(input_tensor=grad, axis=0)
 
         # the Variables are redundant because they are shared
         # across towers. So.. just return the first tower's pointer to
@@ -592,7 +592,7 @@ def summary_gradient_updates(grads, opt, lr):
     # strategy:
     # make a dict of variable name -> [variable, grad, adagrad slot]
     vars_grads = {}
-    for v in tf.trainable_variables():
+    for v in tf.compat.v1.trainable_variables():
         vars_grads[v.name] = [v, None, None]
     for g, v in grads:
         vars_grads[v.name][1] = g
@@ -617,10 +617,10 @@ def summary_gradient_updates(grads, opt, lr):
             if a is not None:
                 updates /= tf.sqrt(a)
 
-        values_norm = tf.sqrt(tf.reduce_sum(v * v)) + 1.0e-7
-        updates_norm = tf.sqrt(tf.reduce_sum(updates * updates))
+        values_norm = tf.sqrt(tf.reduce_sum(input_tensor=v * v)) + 1.0e-7
+        updates_norm = tf.sqrt(tf.reduce_sum(input_tensor=updates * updates))
         ret.append(
-                tf.summary.scalar('UPDATE/' + vname.replace(":", "_"), updates_norm / values_norm))
+                tf.compat.v1.summary.scalar('UPDATE/' + vname.replace(":", "_"), updates_norm / values_norm))
 
     return ret
 
@@ -636,9 +636,9 @@ def _deduplicate_indexed_slices(values, indices):
       `values` slices associated with each unique index.
     """
     unique_indices, new_index_positions = tf.unique(indices)
-    summed_values = tf.unsorted_segment_sum(
+    summed_values = tf.math.unsorted_segment_sum(
       values, new_index_positions,
-      tf.shape(unique_indices)[0])
+      tf.shape(input=unique_indices)[0])
     return (summed_values, unique_indices)
 
 
@@ -681,25 +681,25 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
             fout.write(json.dumps(options))
 
     with tf.device('/cpu:0'):
-        global_step = tf.get_variable(
+        global_step = tf.compat.v1.get_variable(
             'global_step', [],
-            initializer=tf.constant_initializer(0), trainable=False)
+            initializer=tf.compat.v1.constant_initializer(0), trainable=False)
 
         # set up the optimizer
         lr = options.get('learning_rate', 0.2)
-        opt = tf.train.AdagradOptimizer(learning_rate=lr,
+        opt = tf.compat.v1.train.AdagradOptimizer(learning_rate=lr,
                                         initial_accumulator_value=1.0)
 
         # calculate the gradients on each GPU
         tower_grads = []
         models = []
-        train_perplexity = tf.get_variable(
+        train_perplexity = tf.compat.v1.get_variable(
             'train_perplexity', [],
-            initializer=tf.constant_initializer(0.0), trainable=False)
+            initializer=tf.compat.v1.constant_initializer(0.0), trainable=False)
         norm_summaries = []
         for k in range(n_gpus):
             with tf.device('/gpu:%d' % k):
-                with tf.variable_scope('lm', reuse=k > 0):
+                with tf.compat.v1.variable_scope('lm', reuse=k > 0):
                     # calculate the loss for one model replica and get
                     #   lstm states
                     model = LanguageModel(options, True)
@@ -723,55 +723,55 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
 
         # log the training perplexity
         train_perplexity = tf.exp(train_perplexity / n_gpus)
-        perplexity_summmary = tf.summary.scalar(
+        perplexity_summmary = tf.compat.v1.summary.scalar(
             'train_perplexity', train_perplexity)
 
         # some histogram summaries.  all models use the same parameters
         # so only need to summarize one
         histogram_summaries = [
-            tf.summary.histogram('token_embedding', models[0].embedding)
+            tf.compat.v1.summary.histogram('token_embedding', models[0].embedding)
         ]
         # tensors of the output from the LSTM layer
-        lstm_out = tf.get_collection('lstm_output_embeddings')
+        lstm_out = tf.compat.v1.get_collection('lstm_output_embeddings')
         histogram_summaries.append(
-                tf.summary.histogram('lstm_embedding_0', lstm_out[0]))
+                tf.compat.v1.summary.histogram('lstm_embedding_0', lstm_out[0]))
         if options.get('bidirectional', False):
             # also have the backward embedding
             histogram_summaries.append(
-                tf.summary.histogram('lstm_embedding_1', lstm_out[1]))
+                tf.compat.v1.summary.histogram('lstm_embedding_1', lstm_out[1]))
 
         # apply the gradients to create the training operation
         train_op = opt.apply_gradients(grads, global_step=global_step)
 
         # histograms of variables
-        for v in tf.global_variables():
-            histogram_summaries.append(tf.summary.histogram(v.name.replace(":", "_"), v))
+        for v in tf.compat.v1.global_variables():
+            histogram_summaries.append(tf.compat.v1.summary.histogram(v.name.replace(":", "_"), v))
 
         # get the gradient updates -- these aren't histograms, but we'll
         # only update them when histograms are computed
         histogram_summaries.extend(
             summary_gradient_updates(grads, opt, lr))
 
-        saver = tf.train.Saver(tf.global_variables(), max_to_keep=2)
-        summary_op = tf.summary.merge(
+        saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables(), max_to_keep=2)
+        summary_op = tf.compat.v1.summary.merge(
             [perplexity_summmary] + norm_summaries
         )
-        hist_summary_op = tf.summary.merge(histogram_summaries)
+        hist_summary_op = tf.compat.v1.summary.merge(histogram_summaries)
 
-        init = tf.initialize_all_variables()
+        init = tf.compat.v1.initialize_all_variables()
 
     # do the training loop
     bidirectional = options.get('bidirectional', False)
-    with tf.Session(config=tf.ConfigProto(
+    with tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(
             allow_soft_placement=True)) as sess:
         sess.run(init)
 
         # load the checkpoint data if needed
         if restart_ckpt_file is not None:
-            loader = tf.train.Saver()
+            loader = tf.compat.v1.train.Saver()
             loader.restore(sess, restart_ckpt_file)
             
-        summary_writer = tf.summary.FileWriter(tf_log_dir, sess.graph)
+        summary_writer = tf.compat.v1.summary.FileWriter(tf_log_dir, sess.graph)
 
         # For each batch:
         # Get a batch of data from the generator. The generator will
@@ -901,24 +901,24 @@ def clip_by_global_norm_summary(t_list, clip_norm, norm_name, variables):
 
     # compute norms
     # use global_norm with one element to handle IndexedSlices vs dense
-    norms = [tf.global_norm([t]) for t in t_list]
+    norms = [tf.linalg.global_norm([t]) for t in t_list]
 
     # summary ops before clipping
     summary_ops = []
     for ns, v in zip(norms, variables):
         name = 'norm_pre_clip/' + v.name.replace(":", "_")
-        summary_ops.append(tf.summary.scalar(name, ns))
+        summary_ops.append(tf.compat.v1.summary.scalar(name, ns))
 
     # clip 
     clipped_t_list, tf_norm = tf.clip_by_global_norm(t_list, clip_norm)
 
     # summary ops after clipping
-    norms_post = [tf.global_norm([t]) for t in clipped_t_list]
+    norms_post = [tf.linalg.global_norm([t]) for t in clipped_t_list]
     for ns, v in zip(norms_post, variables):
         name = 'norm_post_clip/' + v.name.replace(":", "_")
-        summary_ops.append(tf.summary.scalar(name, ns))
+        summary_ops.append(tf.compat.v1.summary.scalar(name, ns))
 
-    summary_ops.append(tf.summary.scalar(norm_name, tf_norm))
+    summary_ops.append(tf.compat.v1.summary.scalar(norm_name, tf_norm))
 
     return clipped_t_list, tf_norm, summary_ops
 
@@ -964,9 +964,9 @@ def test(options, ckpt_file, data, batch_size=256):
 
     unroll_steps = 1
 
-    config = tf.ConfigProto(allow_soft_placement=True)
-    with tf.Session(config=config) as sess:
-        with tf.device('/gpu:0'), tf.variable_scope('lm'):
+    config = tf.compat.v1.ConfigProto(allow_soft_placement=True)
+    with tf.compat.v1.Session(config=config) as sess:
+        with tf.device('/gpu:0'), tf.compat.v1.variable_scope('lm'):
             test_options = dict(options)
             # NOTE: the number of tokens we skip in the last incomplete
             # batch is bounded above batch_size * unroll_steps
@@ -974,7 +974,7 @@ def test(options, ckpt_file, data, batch_size=256):
             test_options['unroll_steps'] = 1
             model = LanguageModel(test_options, False)
             # we use the "Saver" class to load the variables
-            loader = tf.train.Saver()
+            loader = tf.compat.v1.train.Saver()
             loader.restore(sess, ckpt_file)
 
         # model.total_loss is the op to compute the loss
@@ -1085,16 +1085,16 @@ def dump_weights(tf_save_dir, outfile):
 
     options, ckpt_file = load_options_latest_checkpoint(tf_save_dir)
 
-    config = tf.ConfigProto(allow_soft_placement=True)
-    with tf.Session(config=config) as sess:
-        with tf.variable_scope('lm'):
+    config = tf.compat.v1.ConfigProto(allow_soft_placement=True)
+    with tf.compat.v1.Session(config=config) as sess:
+        with tf.compat.v1.variable_scope('lm'):
             model = LanguageModel(options, False)
             # we use the "Saver" class to load the variables
-            loader = tf.train.Saver()
+            loader = tf.compat.v1.train.Saver()
             loader.restore(sess, ckpt_file)
 
         with h5py.File(outfile, 'w') as fout:
-            for v in tf.trainable_variables():
+            for v in tf.compat.v1.trainable_variables():
                 if v.name.find('softmax') >= 0:
                     # don't dump these
                     continue

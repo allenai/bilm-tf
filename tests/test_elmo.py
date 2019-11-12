@@ -12,15 +12,15 @@ from bilm.elmo import weight_layers
 
 FIXTURES = 'tests/fixtures/model/'
 
-
+tf.compat.v1.disable_v2_behavior() # disables eager execution
 
 class TestWeightedLayers(unittest.TestCase):
     def tearDown(self):
-        tf.reset_default_graph()
+        tf.compat.v1.reset_default_graph()
         self.sess.close()
 
     def setUp(self):
-        self.sess = tf.Session()
+        self.sess = tf.compat.v1.Session()
 
     def _check_weighted_layer(self, l2_coef, do_layer_norm, use_top_only):
         # create the Batcher
@@ -30,7 +30,7 @@ class TestWeightedLayers(unittest.TestCase):
         # load the model
         options_file = os.path.join(FIXTURES, 'options.json')
         weight_file = os.path.join(FIXTURES, 'lm_weights.hdf5')
-        character_ids = tf.placeholder('int32', (None, None, 50))
+        character_ids = tf.compat.v1.placeholder('int32', (None, None, 50))
         model = BidirectionalLanguageModel(
             options_file, weight_file, max_batch_size=4)
         bilm_ops = model(character_ids)
@@ -43,15 +43,15 @@ class TestWeightedLayers(unittest.TestCase):
             weighted_ops.append(ops)
 
         # initialize
-        self.sess.run(tf.global_variables_initializer())
+        self.sess.run(tf.compat.v1.global_variables_initializer())
 
         n_expected_trainable_weights = 2 * (1 + int(not use_top_only))
-        self.assertEqual(len(tf.trainable_variables()),
+        self.assertEqual(len(tf.compat.v1.trainable_variables()),
                          n_expected_trainable_weights)
         # and one regularizer per weighted layer
         n_expected_reg_losses = 2 * int(not use_top_only)
         self.assertEqual(
-            len(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)),
+            len(tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.REGULARIZATION_LOSSES)),
             n_expected_reg_losses,
         )
 
@@ -59,11 +59,11 @@ class TestWeightedLayers(unittest.TestCase):
         weights = [[np.array([0.1, 0.3, 0.5]), np.array([1.1])],
                    [np.array([0.2, 0.4, 0.6]), np.array([0.88])]]
         for k in range(2):
-            with tf.variable_scope('', reuse=True):
+            with tf.compat.v1.variable_scope('', reuse=True):
                 if not use_top_only:
-                    W = tf.get_variable('{}_ELMo_W'.format(k))
+                    W = tf.compat.v1.get_variable('{}_ELMo_W'.format(k))
                     _ = self.sess.run([W.assign(weights[k][0])])
-                gamma = tf.get_variable('{}_ELMo_gamma'.format(k))
+                gamma = tf.compat.v1.get_variable('{}_ELMo_gamma'.format(k))
                 _ = self.sess.run([gamma.assign(weights[k][1])])
 
         # make some data
