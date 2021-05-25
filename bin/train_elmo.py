@@ -16,8 +16,7 @@ def main(args):
     n_gpus = 3
 
     # number of tokens in training data (this for 1B Word Benchmark)
-    n_train_tokens = 768648884
-
+    n_train_tokens = 85850
     options = {
      'bidirectional': True,
 
@@ -49,7 +48,7 @@ def main(args):
      'n_epochs': 10,
      'n_train_tokens': n_train_tokens,
      'batch_size': batch_size,
-     'n_tokens_vocab': vocab.size,
+     'n_tokens_vocab': 4229,
      'unroll_steps': 20,
      'n_negative_samples_batch': 8192,
     }
